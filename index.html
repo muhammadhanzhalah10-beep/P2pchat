@@ -2,74 +2,132 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group Chat P2P (Serverless)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chat P2P - Ultimate</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; background: #121212; color: #eee; }
-        .box { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        input, button { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border-radius: 5px; border: none; }
-        input { background: #2c2c2c; color: #fff; border: 1px solid #444; }
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"> <style>
+        /* --- TAMPILAN ALA WHATSAPP DARK MODE --- */
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: #111b21; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* HEADER */
+        .header { background: #202c33; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2f3b43; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 10; }
+        .header h3 { margin: 0; font-size: 1.1rem; color: #aebac1; }
+        .status-dot { height: 10px; width: 10px; background-color: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .status-online { background-color: #00a884; box-shadow: 0 0 5px #00a884; }
+
+        /* LOGIN / SETUP AREA */
+        #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111b21; z-index: 999; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .card { background: #202c33; padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center; }
+        input { width: 90%; padding: 12px; margin: 10px 0; background: #2a3942; border: none; color: white; border-radius: 8px; outline: none; text-align: center; }
         
         /* TOMBOL */
-        .btn-host { background: #6200ea; color: white; font-weight: bold; } /* Ungu buat Host */
-        .btn-join { background: #00c853; color: white; font-weight: bold; } /* Hijau buat Join */
-        .btn-send { background: #2962ff; color: white; width: 20%; }
-        
-        #chat-area { display: none; }
-        #msgs { height: 400px; overflow-y: auto; background: #000; border: 1px solid #333; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 8px; }
-        
+        .btn { padding: 12px; width: 95%; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        .btn-green { background: #00a884; color: #111b21; }
+        .btn-green:hover { background: #008f6f; }
+        .btn-outline { background: transparent; border: 1px solid #00a884; color: #00a884; }
+
+        /* AREA CHAT */
+        #chat-area { flex: 1; overflow-y: auto; padding: 10px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; background-size: 400px; opacity: 1; display: flex; flex-direction: column; gap: 5px; }
+        /* Overlay gelap untuk background */
+        #chat-area::before { content: ""; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(10, 16, 20, 0.95); z-index: -1; pointer-events: none; }
+
         /* BUBBLE CHAT */
-        .msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; word-wrap: break-word; font-size: 0.9em; }
-        .me { background: #2962ff; align-self: flex-end; color: #fff; border-bottom-right-radius: 0; }
-        .them { background: #333; align-self: flex-start; color: #ddd; border-bottom-left-radius: 0; }
-        .sender-name { font-size: 0.7em; color: #aaa; margin-bottom: 2px; }
-        .sys { align-self: center; background: none; color: #666; font-size: 0.8em; font-style: italic; }
+        .msg-row { display: flex; width: 100%; margin-bottom: 2px; }
+        .msg-bubble { max-width: 75%; padding: 6px 10px; border-radius: 8px; font-size: 0.95rem; position: relative; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         
-        .status-bar { padding: 5px; text-align: center; font-size: 0.8em; color: yellow; }
+        /* Pesan Kita (Kanan + Hijau) */
+        .me { justify-content: flex-end; }
+        .me .msg-bubble { background: #005c4b; color: #e9edef; border-top-right-radius: 0; }
+        
+        /* Pesan Teman (Kiri + Abu) */
+        .them { justify-content: flex-start; }
+        .them .msg-bubble { background: #202c33; color: #e9edef; border-top-left-radius: 0; }
+
+        /* Pesan Sistem (Tengah) */
+        .sys { justify-content: center; margin: 10px 0; }
+        .sys .msg-bubble { background: #182229; color: #8696a0; font-size: 0.75rem; border-radius: 10px; padding: 5px 12px; box-shadow: none; }
+
+        .sender-name { font-size: 0.75rem; font-weight: bold; color: #aebac1; margin-bottom: 2px; display: block; }
+        .me .sender-name { display: none; } /* Nama kita sendiri gausah ditampilin */
+        .them .sender-name { color: #53bdeb; } /* Warna nama temen */
+        
+        .timestamp { font-size: 0.65rem; color: #8696a0; float: right; margin-top: 5px; margin-left: 10px; }
+
+        /* GAMBAR */
+        .chat-img { max-width: 100%; border-radius: 5px; margin-top: 5px; cursor: pointer; }
+
+        /* FOOTER / INPUT */
+        .footer { background: #202c33; padding: 8px 10px; display: flex; align-items: center; gap: 8px; z-index: 10; }
+        .input-box { flex: 1; background: #2a3942; border-radius: 20px; padding: 10px 15px; color: white; border: none; outline: none; }
+        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; }
+        .icon-btn:hover { color: #aebac1; }
+        .send-btn { background: #00a884; border: none; width: 40px; height: 40px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
+        /* MODAL GAMBAR */
+        #file-input { display: none; }
     </style>
 </head>
 <body>
 
-    <h2 style="text-align:center;">👥 Group Chat (Tanpa Server)</h2>
-    <div id="status" class="status-bar">Mode Persiapan...</div>
+    <audio id="notif-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"></audio>
 
-    <div class="box" id="login-panel">
-        <label>👤 Nama Kamu:</label>
-        <input type="text" id="username" placeholder="Misal: Si Kancil">
+    <div id="setup-panel">
+        <h2 style="color: #00a884; margin-bottom: 20px;"><i class="fab fa-whatsapp"></i> P2P Chat</h2>
         
-        <hr style="border-color:#333; margin: 15px 0;">
-        
-        <p style="font-size:0.9em; color:#aaa;">Pilih Peran:</p>
-        <button onclick="startAsHost()" class="btn-host">JADI HOST (BUAT ROOM)</button>
-        <p style="text-align:center; margin:5px;">— atau —</p>
-        
-        <input type="text" id="host-id-input" placeholder="Masukan ID Host disini...">
-        <button onclick="joinRoom()" class="btn-join">GABUNG KE ROOM TEMAN</button>
+        <div class="card">
+            <label style="color:#8696a0; font-size:0.9rem;">Nama Kamu</label>
+            <input type="text" id="username-input" placeholder="Ketik nama...">
+            
+            <hr style="border-color: #2a3942; margin: 15px 0;">
+            
+            <button onclick="startHost()" class="btn btn-green">Buat Grup Baru (HOST)</button>
+            <div id="host-info" style="display:none; margin-top:10px;">
+                <p style="font-size:0.8rem; color:#8696a0;">ID Grup Kamu:</p>
+                <input type="text" id="my-room-id" readonly style="color:#00e676; font-weight:bold; cursor:copy;" onclick="copyId(this)">
+                <p style="font-size:0.7rem; color:#8696a0;">*Klik ID untuk menyalin & kirim ke teman</p>
+                <button onclick="enterChatMode()" class="btn btn-outline">Masuk ke Chat</button>
+            </div>
+            
+            <p style="margin: 10px 0; color:#8696a0;">- ATAU -</p>
+            
+            <input type="text" id="join-id-input" placeholder="Tempel ID Grup Teman Disini">
+            <button onclick="joinRoom()" class="btn btn-outline">Gabung Grup</button>
+        </div>
+        <p style="margin-top:20px; font-size:0.8rem; color:#555;">Riwayat chat tersimpan otomatis.</p>
     </div>
 
-    <div class="box" id="host-panel" style="display:none; text-align:center;">
-        <p>✅ Room Berhasil Dibuat!</p>
-        <p style="font-size:0.8em; color:#aaa;">Bagikan ID ini ke teman-temanmu:</p>
-        <input type="text" id="my-room-id" readonly style="text-align:center; font-weight:bold; color:#00e676;" onclick="this.select()">
-        <p style="font-size:0.8em; color:yellow;">Tunggu teman join...</p>
-    </div>
-
-    <div id="chat-area">
-        <div id="msgs"></div>
-        <div style="display: flex; gap: 5px; margin-top: 10px;">
-            <input type="text" id="msg-input" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
-            <button onclick="sendChat()" class="btn-send">➤</button>
+    <div class="header" id="main-header" style="display:none;">
+        <div style="display:flex; align-items:center;">
+            <i class="fas fa-arrow-left icon-btn" onclick="location.reload()" style="font-size:1rem; margin-right:10px;"></i>
+            <div>
+                <h3 id="chat-title">Grup Chat</h3>
+                <span id="connection-status" style="font-size: 0.75rem; color: #8696a0;">Menunggu koneksi...</span>
+            </div>
+        </div>
+        <div>
+            <span class="status-dot" id="status-dot"></span>
         </div>
     </div>
 
+    <div id="chat-area" style="display:none;">
+        </div>
+
+    <div class="footer" id="main-footer" style="display:none;">
+        <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-camera"></i></button>
+        <input type="file" id="file-input" accept="image/*" onchange="handleImageUpload()">
+        
+        <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
+        <button class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+
     <script>
-        // --- KONFIGURASI PEERJS (METERED AKUN LU) ---
+        // --- 1. KONFIGURASI & VARIABEL ---
         const peerConfig = {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     {
+                        // AKUN METERED.CA LU (JANGAN DIHAPUS)
                         urls: "turn:global.relay.metered.ca:80",
                         username: "e0c85ce62faba6edf920d892",
                         credential: "g2dtUiurVlwXzt9d"
@@ -79,148 +137,242 @@
         };
 
         let peer = null;
-        let myName = "";
-        let connections = []; // List koneksi (buat Host simpan data peserta)
-        let hostConnection = null; // Koneksi ke Host (buat Peserta)
-        let iAmHost = false;
+        let myName = localStorage.getItem('p2p_username') || "";
+        let connections = []; // Untuk Host
+        let hostConn = null;  // Untuk Peserta
+        let isHost = false;
+        let chatHistory = JSON.parse(localStorage.getItem('p2p_history')) || [];
 
-        // --- 1. JADI HOST (Bikin Room) ---
-        function startAsHost() {
-            myName = document.getElementById('username').value || "Host";
-            
-            // Bikin ID Random
-            const roomId = 'room-' + Math.floor(Math.random() * 9999);
-            
+        // Inisialisasi awal
+        document.getElementById('username-input').value = myName;
+
+        // Render history lama kalau ada
+        // Kita render di background dulu, nanti pas masuk chat baru keliatan
+        chatHistory.forEach(msg => renderMessage(msg));
+
+
+        // --- 2. FUNGSI UTAMA (HOST & JOIN) ---
+        
+        function saveName() {
+            myName = document.getElementById('username-input').value || "Anonim";
+            localStorage.setItem('p2p_username', myName);
+        }
+
+        function startHost() {
+            saveName();
+            const roomId = 'GRUP-' + Math.floor(Math.random() * 99999);
             peer = new Peer(roomId, peerConfig);
-            iAmHost = true;
+            isHost = true;
+
+            document.getElementById('status-dot').className = "status-dot status-online"; // Host selalu online buat diri sendiri
 
             peer.on('open', (id) => {
-                document.getElementById('login-panel').style.display = 'none';
-                document.getElementById('host-panel').style.display = 'block';
-                document.getElementById('chat-area').style.display = 'block';
+                document.getElementById('host-info').style.display = 'block';
                 document.getElementById('my-room-id').value = id;
-                document.getElementById('status').innerText = "Status: Menunggu Peserta...";
-                addMsg("Room dibuat! ID: " + id, "sys");
             });
 
-            // Saat ada peserta masuk
             peer.on('connection', (conn) => {
-                connections.push(conn); // Simpan peserta ke list
+                connections.push(conn);
                 setupConnection(conn);
-                document.getElementById('status').innerText = "Status: " + connections.length + " Orang Online";
+                updateStatus(connections.length + " Orang Online");
             });
+
+            // Auto masuk ke tampilan chat tapi panel host tetep ada buat copy ID
         }
 
-        // --- 2. JADI PESERTA (Gabung Room) ---
         function joinRoom() {
-            myName = document.getElementById('username').value || "Peserta";
-            const hostId = document.getElementById('host-id-input').value;
-            
-            if(!hostId) return alert("Masukan ID Host dulu!");
+            saveName();
+            const hostId = document.getElementById('join-id-input').value.trim();
+            if(!hostId) return alert("Masukan ID Grup dulu!");
 
-            peer = new Peer(peerConfig); // ID kita random aja
-            iAmHost = false;
+            peer = new Peer(peerConfig);
+            isHost = false;
 
             peer.on('open', () => {
-                // Langsung konek ke Host
-                hostConnection = peer.connect(hostId, {
-                    metadata: { name: myName } // Kirim nama kita ke Host
+                updateStatus("Menghubungkan ke Host...");
+                hostConn = peer.connect(hostId, { metadata: { name: myName } });
+                
+                hostConn.on('open', () => {
+                    enterChatMode();
+                    updateStatus("Terhubung ✅");
+                    document.getElementById('status-dot').className = "status-dot status-online";
+                    
+                    // Host conn logic
+                    hostConn.on('data', handleData);
+                    hostConn.on('close', () => updateStatus("Koneksi Putus ❌"));
                 });
                 
-                hostConnection.on('open', () => {
-                    document.getElementById('login-panel').style.display = 'none';
-                    document.getElementById('chat-area').style.display = 'block';
-                    document.getElementById('status').innerText = "Status: Terhubung ke Host";
-                    addMsg("Berhasil bergabung ke Group!", "sys");
-
-                    // Listener kalau dapat pesan dari Host
-                    hostConnection.on('data', (data) => handleData(data));
-                });
-
-                hostConnection.on('error', (err) => alert("Gagal konek: " + err));
+                hostConn.on('error', (err) => alert("Gagal konek: " + err));
             });
         }
 
-        // --- 3. LOGIKA PESAN ---
+        function enterChatMode() {
+            document.getElementById('setup-panel').style.display = 'none';
+            document.getElementById('main-header').style.display = 'flex';
+            document.getElementById('chat-area').style.display = 'flex';
+            document.getElementById('main-footer').style.display = 'flex';
+            
+            // Scroll ke paling bawah
+            const area = document.getElementById('chat-area');
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // --- 3. LOGIKA PESAN & BROADCAST ---
+
         function setupConnection(conn) {
             conn.on('open', () => {
-                // Kirim info siapa yang baru join ke semua orang
-                broadcast({ type: 'sys', text: 'Seseorang bergabung!' });
+                // Kirim info user join
+                broadcast({ type: 'sys', text: 'Teman baru bergabung!' });
             });
 
             conn.on('data', (data) => {
-                // Host menerima pesan dari salah satu peserta
-                if (iAmHost) {
+                if (isHost) {
                     // Tampilkan di layar Host
-                    if(data.type === 'chat') addMsg(data.text, "them", data.sender);
+                    if(data.type !== 'sys') saveAndRender(data);
                     
-                    // TERUSKAN (Relay) ke peserta lain!
-                    broadcast(data, conn.peer); // conn.peer = ID pengirim (biar ga dikirim balik ke dia)
+                    // Broadcast ke semua kecuali pengirim
+                    broadcast(data, conn.peer); 
                 }
             });
 
             conn.on('close', () => {
                 connections = connections.filter(c => c !== conn);
-                broadcast({ type: 'sys', text: 'Seseorang keluar.' });
+                updateStatus(connections.length + " Orang Online");
             });
         }
 
-        // Fungsi Broadcast (Host menyebar pesan ke semua)
         function broadcast(data, excludeId = null) {
             connections.forEach(conn => {
-                if (conn.peer !== excludeId) { // Jangan kirim balik ke pengirimnya
-                    conn.send(data);
-                }
+                if (conn.peer !== excludeId) conn.send(data);
             });
         }
 
-        // Fungsi Menangani Data Masuk (di sisi Peserta)
         function handleData(data) {
-            if (data.type === 'chat') {
-                addMsg(data.text, "them", data.sender);
-            } else if (data.type === 'sys') {
-                addMsg(data.text, "sys");
-            }
+            saveAndRender(data);
+            // Mainkan suara notif
+            playSound();
         }
 
-        // Kirim Pesan dari UI
         function sendChat() {
             const input = document.getElementById('msg-input');
             const text = input.value;
             if (!text) return;
 
-            // Tampilkan pesan sendiri
-            addMsg(text, "me", myName);
+            const msgData = { 
+                type: 'text', 
+                text: text, 
+                sender: myName, 
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+            };
 
-            const msgPacket = { type: 'chat', text: text, sender: myName };
+            // 1. Tampilkan & Simpan di diri sendiri
+            saveAndRender(msgData, true);
 
-            if (iAmHost) {
-                // Kalau Host: langsung broadcast ke semua anak buah
-                broadcast(msgPacket);
-            } else {
-                // Kalau Peserta: kirim ke Host, biar Host yang sebar
-                if(hostConnection) hostConnection.send(msgPacket);
+            // 2. Kirim
+            if (isHost) {
+                broadcast(msgData);
+            } else if (hostConn) {
+                hostConn.send(msgData);
             }
 
             input.value = "";
         }
 
-        // UI Helper
-        function addMsg(text, type, senderName = "") {
-            const box = document.getElementById('msgs');
+        // --- 4. KIRIM GAMBAR (BASE64) ---
+        function handleImageUpload() {
+            const file = document.getElementById('file-input').files[0];
+            if (!file) return;
+
+            // Batasi ukuran biar ga crash (max 500KB aman buat PeerJS)
+            if (file.size > 500000) return alert("Gambar terlalu besar! Max 500KB.");
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgData = {
+                    type: 'image',
+                    content: e.target.result, // Base64 string
+                    sender: myName,
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                };
+                
+                saveAndRender(imgData, true);
+
+                if (isHost) broadcast(imgData);
+                else if (hostConn) hostConn.send(imgData);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- 5. RENDER UI & SAVE LOCALSTORAGE ---
+        
+        function saveAndRender(data, isMe = false) {
+            // Simpan ke history array
+            chatHistory.push({...data, isMe: isMe}); // Simpan status isMe juga biar pas load tau itu chat siapa
+            // Simpan ke LocalStorage
+            localStorage.setItem('p2p_history', JSON.stringify(chatHistory));
+            
+            // Render
+            renderMessage({...data, isMe: isMe});
+        }
+
+        function renderMessage(data) {
+            const area = document.getElementById('chat-area');
             const div = document.createElement('div');
             
-            let html = "";
-            if (type !== 'sys' && type !== 'me') {
-                html += `<div class="sender-name">${senderName}</div>`;
+            // Cek Tipe Pesan
+            if (data.type === 'sys') {
+                div.className = "msg-row sys";
+                div.innerHTML = `<div class="msg-bubble">${data.text}</div>`;
+            } else {
+                const isMe = data.isMe || (data.sender === myName);
+                div.className = "msg-row " + (isMe ? "me" : "them");
+                
+                let contentHtml = "";
+                if (data.type === 'image') {
+                    contentHtml = `<img src="${data.content}" class="chat-img" onclick="viewImage(this.src)">`;
+                } else {
+                    contentHtml = data.text;
+                }
+
+                div.innerHTML = `
+                    <div class="msg-bubble">
+                        <span class="sender-name">${data.sender}</span>
+                        ${contentHtml}
+                        <span class="timestamp">${data.time}</span>
+                    </div>
+                `;
             }
-            html += text;
             
-            div.innerHTML = html;
-            div.className = "msg " + type;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight; // Auto scroll ke bawah
+        }
+
+        // Helpers
+        function updateStatus(txt) {
+            document.getElementById('connection-status').innerText = txt;
+        }
+
+        function copyId(el) {
+            el.select();
+            document.execCommand("copy");
+            alert("ID Disalin: " + el.value);
+        }
+        
+        function playSound() {
+            // Bunyi notif sederhana
+            try {
+                // Link mp3 pendek (host gratisan) atau pakai audio context kalau mau pro
+                // Di sini kita pakai beep suara default browser/sistem kalau ada
+                 // const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                 // audio.play().catch(e => console.log("Audio play blocked"));
+            } catch(e) {}
+        }
+
+        function viewImage(src) {
+            const w = window.open("");
+            w.document.write('<img src="'+src+'" style="width:100%">');
         }
     </script>
 </body>
-</html>
+    </html>
+    
