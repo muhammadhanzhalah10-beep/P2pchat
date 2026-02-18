@@ -3,339 +3,377 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat P2P - Multi Group</title>
+    <title>Chat P2P - Ultimate</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* --- STYLE MIRIP SEBELUMNYA (TAPI LEBIH RAPI) --- */
-        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
-        
-        /* HEADER UTAMA */
-        .header { background: #202c33; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2f3b43; height: 60px; box-sizing: border-box; z-index: 20; }
-        .header-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
-        .avatar-header { width: 38px; height: 38px; border-radius: 50%; background: #333; flex-shrink: 0; }
-        .chat-info { overflow: hidden; }
-        .chat-info h3 { margin: 0; font-size: 1rem; color: #e9edef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .status-text { font-size: 0.75rem; color: #8696a0; display: block; }
-        .typing-text { color: #00a884; font-weight: bold; animation: pulse 1s infinite; display: none; }
-        
-        /* TOMBOL HEADER (INVITE) */
-        .header-actions { display: flex; gap: 15px; }
-        .header-icon { font-size: 1.2rem; color: #aebac1; cursor: pointer; }
-        .header-icon:hover { color: #fff; }
+        /* --- VARIABEL TEMA (DARK/LIGHT) --- */
+        :root {
+            --bg-color: #0b141a;
+            --header-bg: #202c33;
+            --chat-bg: #0b141a; 
+            --input-bg: #202c33;
+            --text-primary: #e9edef;
+            --text-secondary: #8696a0;
+            --bubble-me: #005c4b;
+            --bubble-them: #202c33;
+            --accent: #00a884;
+            --border: #2f3b43;
+            --modal-bg: #202c33;
+        }
 
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        [data-theme="light"] {
+            --bg-color: #efeae2;
+            --header-bg: #f0f2f5;
+            --chat-bg: #efeae2;
+            --input-bg: #ffffff;
+            --text-primary: #111b21;
+            --text-secondary: #667781;
+            --bubble-me: #d9fdd3;
+            --bubble-them: #ffffff;
+            --accent: #00a884;
+            --border: #d1d7db;
+            --modal-bg: #ffffff;
+        }
+
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: var(--bg-color); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s; }
+
+        /* HEADER */
+        .header { background: var(--header-bg); padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); height: 60px; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .header-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+        .avatar-header { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
+        .chat-info { display: flex; flex-direction: column; justify-content: center; }
+        .chat-info h3 { margin: 0; font-size: 1rem; color: var(--text-primary); }
+        .status-text { font-size: 0.75rem; color: var(--text-secondary); }
+        .typing-text { color: var(--accent); font-weight: bold; animation: pulse 1s infinite; display: none; }
+        .header-actions { display: flex; gap: 15px; color: var(--text-secondary); font-size: 1.2rem; }
+        .header-actions i { cursor: pointer; transition: 0.2s; }
+        .header-actions i:hover { color: var(--accent); }
 
         /* SETUP PANEL */
-        #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111b21; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
-        .card { background: #202c33; padding: 25px; border-radius: 10px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #2a3942; border: none; color: white; border-radius: 8px; outline: none; text-align: center; box-sizing: border-box; }
+        #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .card { background: var(--header-bg); padding: 30px; border-radius: 15px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2); border: 1px solid var(--border); }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: var(--input-bg); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; outline: none; text-align: center; box-sizing: border-box; }
         
-        .btn { padding: 12px; width: 100%; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: 0.2s; font-size: 0.9rem; }
-        .btn-green { background: #00a884; color: #111b21; }
-        .btn-outline { background: transparent; border: 1px solid #00a884; color: #00a884; }
+        .btn { padding: 12px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; font-size: 0.95rem; }
+        .btn-green { background: var(--accent); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
 
-        /* AREA CHAT */
-        #chat-area { flex: 1; overflow-y: auto; padding: 15px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: 300px; position: relative; display: flex; flex-direction: column; gap: 8px; }
-        #chat-area::before { content: ""; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(11, 20, 26, 0.95); z-index: -1; pointer-events: none; }
+        /* CHAT AREA */
+        #chat-area { flex: 1; overflow-y: auto; padding: 15px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: 400px; opacity: 1; display: flex; flex-direction: column; gap: 4px; position: relative; }
+        /* Overlay agar BG transparan sesuai tema */
+        #chat-area::before { content: ""; position: absolute; top:0; left:0; width:100%; height:100%; background: var(--bg-color); opacity: 0.9; z-index: -1; pointer-events: none; }
 
-        /* BUBBLE CHAT */
-        .msg-row { display: flex; width: 100%; align-items: flex-end; margin-bottom: 2px; }
-        .avatar-small { width: 28px; height: 28px; border-radius: 50%; margin-right: 8px; margin-bottom: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        
-        .msg-bubble { max-width: 70%; padding: 6px 10px; border-radius: 8px; font-size: 0.95rem; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+        /* BUBBLES */
+        .msg-row { display: flex; width: 100%; margin-bottom: 2px; }
+        .msg-bubble { max-width: 75%; padding: 6px 9px; border-radius: 8px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-width: 80px; }
         
         .me { justify-content: flex-end; }
-        .me .msg-bubble { background: #005c4b; color: #e9edef; border-top-right-radius: 0; }
-        .me .avatar-small { display: none; } 
-
-        .them { justify-content: flex-start; }
-        .them .msg-bubble { background: #202c33; color: #e9edef; border-top-left-radius: 0; }
-
-        .sys { justify-content: center; margin: 15px 0; }
-        .sys .msg-bubble { background: #182229; color: #8696a0; font-size: 0.75rem; border-radius: 15px; padding: 5px 15px; box-shadow: none; text-align: center; }
-
-        .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: #aebac1; }
-        .them .sender-name { color: #53bdeb; }
+        .me .msg-bubble { background: var(--bubble-me); color: var(--text-primary); border-top-right-radius: 0; }
         
-        .timestamp { font-size: 0.65rem; color: #8696a0; align-self: flex-end; margin-top: 4px; }
-        .chat-img { max-width: 100%; border-radius: 6px; margin-top: 5px; cursor: pointer; }
+        .them { justify-content: flex-start; }
+        .them .msg-bubble { background: var(--bubble-them); color: var(--text-primary); border-top-left-radius: 0; }
+        
+        .sys { justify-content: center; margin: 10px 0; }
+        .sys .msg-bubble { background: var(--input-bg); color: var(--text-secondary); font-size: 0.75rem; border-radius: 10px; padding: 4px 10px; box-shadow: none; text-align: center; }
+
+        .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: var(--text-secondary); }
+        .them .sender-name { color: #fca103; } /* Warna nama temen */
+        
+        .meta-row { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 2px; }
+        .timestamp { font-size: 0.65rem; color: var(--text-secondary); }
+        .ticks { font-size: 0.7rem; color: var(--text-secondary); }
+        .ticks.read { color: #53bdeb; } /* Centang Biru */
+
+        /* ATTACHMENTS */
+        .chat-img { max-width: 100%; border-radius: 6px; cursor: pointer; margin-top: 5px; }
+        .chat-file { background: rgba(0,0,0,0.1); padding: 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; margin-top: 5px; text-decoration: none; color: var(--text-primary); border: 1px solid var(--border); }
+        .chat-file i { font-size: 1.5rem; color: var(--accent); }
+
+        /* REPLY PREVIEW */
+        .reply-preview { border-left: 4px solid var(--accent); background: rgba(0,0,0,0.1); padding: 5px 8px; border-radius: 4px; margin-bottom: 5px; font-size: 0.8rem; cursor: pointer; display: flex; flex-direction: column; }
+        .reply-sender { font-weight: bold; color: var(--accent); font-size: 0.7rem; }
+        .reply-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
 
         /* FOOTER */
-        .footer { background: #202c33; padding: 8px 10px; display: flex; align-items: center; gap: 10px; z-index: 20; }
-        .input-box { flex: 1; background: #2a3942; border-radius: 20px; padding: 12px 15px; color: white; border: none; outline: none; font-size: 1rem; }
-        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.3rem; cursor: pointer; padding: 5px; }
-        .send-btn { background: #00a884; border: none; width: 45px; height: 45px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .footer-container { background: var(--header-bg); padding: 5px 10px; z-index: 20; }
+        .reply-bar { background: var(--input-bg); padding: 10px; border-left: 5px solid var(--accent); display: none; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; margin-bottom: 5px; }
+        .footer { display: flex; align-items: center; gap: 10px; padding-bottom: 5px; }
+        .input-box { flex: 1; background: var(--input-bg); border-radius: 20px; padding: 10px 15px; color: var(--text-primary); border: none; outline: none; font-size: 1rem; max-height: 100px; overflow-y: auto; }
+        .icon-btn { color: var(--text-secondary); font-size: 1.3rem; cursor: pointer; padding: 8px; transition: 0.2s; }
+        .icon-btn:hover { color: var(--accent); }
+        .send-btn { background: var(--accent); border: none; width: 40px; height: 40px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* MODALS */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; justify-content: center; align-items: center; }
+        .modal-box { background: var(--modal-bg); padding: 20px; border-radius: 10px; width: 85%; max-width: 350px; text-align: center; color: var(--text-primary); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         
-        #file-input { display: none; }
-        
-        /* MODAL POPUP (Buat Invite & View Gambar) */
-        .modal-overlay { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
-        .modal-box { background: #202c33; padding: 20px; border-radius: 10px; text-align: center; width: 80%; max-width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .modal-title { color: #00a884; font-weight: bold; margin-bottom: 10px; }
-        #img-full { max-width:95%; max-height:90vh; border-radius:5px; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
-<body>
+<body data-theme="dark">
 
     <div id="setup-panel">
-        <h2 style="color: #00a884; margin-bottom: 20px;"><i class="fas fa-users"></i> Multi-Grup Chat</h2>
         <div class="card">
-            <img id="my-avatar-preview" src="https://api.dicebear.com/9.x/avataaars/svg?seed=Guest" style="width:70px; height:70px; border-radius:50%; border: 2px solid #00a884; margin-bottom:10px;">
+            <h2 style="color:var(--accent); margin-bottom:10px;"><i class="fab fa-whatsapp"></i> Chat P2P Pro</h2>
+            <img id="my-avatar-preview" src="" style="width:70px; height:70px; border-radius:50%; margin-bottom:15px; border:2px solid var(--accent);">
+            
             <input type="text" id="username-input" placeholder="Nama Kamu..." oninput="updateAvatarPreview()">
+            <input type="text" id="room-input" placeholder="ID Grup (Kosongkan utk Baru)">
             
-            <hr style="border-color: #2a3942; margin: 15px 0;">
-            
-            <button onclick="createGroup()" class="btn btn-green">Buat Grup Baru</button>
-            <p style="margin: 10px 0; color:#8696a0; font-size: 0.8rem;">- ATAU -</p>
-            <input type="text" id="join-id-input" placeholder="Masukan ID Grup">
-            <button onclick="joinGroup()" class="btn btn-outline">Masuk Grup</button>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="startApp(true)" class="btn btn-green"><i class="fas fa-plus"></i> Buat/Host</button>
+                <button onclick="startApp(false)" class="btn btn-outline"><i class="fas fa-sign-in-alt"></i> Masuk</button>
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:15px;">Host wajib 'Buat' dulu baru Peserta bisa 'Masuk'.</p>
         </div>
     </div>
 
     <div class="header" id="main-header" style="display:none;">
         <div class="header-left">
-            <i class="fas fa-arrow-left icon-btn" onclick="location.reload()" style="font-size:1rem; margin-right: 5px;"></i>
-            <img src="https://api.dicebear.com/9.x/initials/svg?seed=GC" class="avatar-header" id="group-avatar">
-            <div class="chat-info" style="margin-left: 10px;">
+            <i class="fas fa-arrow-left icon-btn" onclick="location.reload()"></i>
+            <img id="group-avatar" class="avatar-header" src="">
+            <div class="chat-info" style="margin-left:10px;">
                 <h3 id="chat-title">Grup Chat</h3>
                 <span id="connection-status" class="status-text">Menunggu...</span>
                 <span id="typing-indicator" class="status-text typing-text">...</span>
             </div>
         </div>
         <div class="header-actions">
-            <i class="fas fa-user-plus header-icon" onclick="showInviteModal()" title="Invite Teman"></i>
-            <i class="fas fa-trash header-icon" onclick="clearChat()" title="Hapus Chat"></i>
+            <i class="fas fa-sun" id="theme-icon" onclick="toggleTheme()" title="Ganti Tema"></i>
+            <i class="fas fa-user-plus" onclick="showInvite()" title="Invite"></i>
+            <i class="fas fa-trash-alt" onclick="clearChat()" title="Hapus Chat"></i>
         </div>
     </div>
 
     <div id="chat-area" style="display:none;"></div>
 
-    <div class="footer" id="main-footer" style="display:none;">
-        <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-paperclip"></i></button>
-        <input type="file" id="file-input" accept="image/*" onchange="handleImageUpload()">
-        <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()" oninput="sendTypingSignal()">
-        <button class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+    <div class="footer-container" id="main-footer" style="display:none;">
+        <div id="reply-bar" class="reply-bar">
+            <div style="flex:1;">
+                <div id="reply-target-name" style="color:var(--accent); font-weight:bold; font-size:0.8rem;"></div>
+                <div id="reply-target-text" style="color:var(--text-secondary); font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+            </div>
+            <i class="fas fa-times" onclick="cancelReply()" style="cursor:pointer; padding:5px; color:var(--text-secondary);"></i>
+        </div>
+
+        <div class="footer">
+            <i class="fas fa-paperclip icon-btn" onclick="document.getElementById('file-input').click()"></i>
+            <input type="file" id="file-input" style="display:none" onchange="handleFileSelect()">
+            
+            <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()" oninput="sendTypingSignal()">
+            
+            <div class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></div>
+        </div>
     </div>
 
     <div id="invite-modal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
         <div class="modal-box">
-            <div class="modal-title">UNDANG TEMAN</div>
-            <p style="font-size:0.9rem; color:#e9edef;">Bagikan ID Grup ini:</p>
-            <input type="text" id="invite-id-display" readonly style="font-weight:bold; color:#00e676; cursor:pointer;" onclick="copyId(this)">
-            <button class="btn btn-green" onclick="copyId(document.getElementById('invite-id-display'))">SALIN ID</button>
+            <h3 style="color:var(--accent)">ID GRUP</h3>
+            <input type="text" id="invite-id" readonly onclick="copyId(this)" style="font-weight:bold; color:var(--accent); cursor:pointer;">
+            <p style="font-size:0.8rem; color:var(--text-secondary);">Klik untuk salin & bagikan.</p>
         </div>
     </div>
 
-    <div id="img-modal" class="modal-overlay" onclick="this.style.display='none'">
-        <img id="img-full">
-    </div>
-
     <script>
-        // --- KONFIGURASI ---
+        // --- 1. KONFIGURASI ---
         const peerConfig = {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    {
-                        urls: "turn:global.relay.metered.ca:80",
-                        username: "e0c85ce62faba6edf920d892",
-                        credential: "g2dtUiurVlwXzt9d"
-                    }
+                    { urls: "turn:global.relay.metered.ca:80", username: "e0c85ce62faba6edf920d892", credential: "g2dtUiurVlwXzt9d" }
                 ]
             }
         };
 
-        let peer = null;
-        let myName = localStorage.getItem('p2p_username') || "";
-        let currentRoomId = ""; // INI KUNCINYA (ID Grup saat ini)
-        let connections = []; 
+        let peer, myName, roomId, isHost;
+        let connections = [];
         let hostConn = null;
-        let isHost = false;
         let chatHistory = [];
+        let replyTo = null; // Menyimpan data pesan yg mau dibalas
         let typingTimeout;
 
-        // Setup Init
+        // Init Theme
+        if(localStorage.getItem('theme') === 'light') toggleTheme(false);
+        
+        // Init Name & Avatar
+        myName = localStorage.getItem('p2p_username') || "";
         document.getElementById('username-input').value = myName;
         updateAvatarPreview();
 
-        // --- FUNGSI UTAMA ---
-
+        // --- 2. LOGIKA UTAMA ---
+        
         function updateAvatarPreview() {
             const val = document.getElementById('username-input').value || "Guest";
             document.getElementById('my-avatar-preview').src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${val}`;
         }
 
-        function saveName() {
+        function startApp(asHost) {
             myName = document.getElementById('username-input').value || "Anonim";
             localStorage.setItem('p2p_username', myName);
-        }
-
-        // --- LOAD HISTORY BERDASARKAN GRUP ID (PERBAIKAN UTAMA) ---
-        function loadHistory(roomId) {
-            currentRoomId = roomId;
-            // Kuncinya: p2p_chat_IDGRUP. Jadi tiap grup beda laci.
-            const key = 'p2p_chat_' + roomId;
-            chatHistory = JSON.parse(localStorage.getItem(key)) || [];
             
-            // Bersihkan layar dulu
-            document.getElementById('chat-area').innerHTML = '';
-            // Render ulang
-            chatHistory.forEach(msg => renderMessage(msg));
+            let inputId = document.getElementById('room-input').value.trim();
             
-            // Update UI Header
-            document.getElementById('chat-title').innerText = roomId;
-            document.getElementById('group-avatar').src = `https://api.dicebear.com/9.x/initials/svg?seed=${roomId}`;
-            document.getElementById('setup-panel').style.display = 'none';
-            document.getElementById('main-header').style.display = 'flex';
-            document.getElementById('chat-area').style.display = 'flex';
-            document.getElementById('main-footer').style.display = 'flex';
-        }
-
-        function createGroup() {
-            saveName();
-            const newId = 'GRUP-' + Math.floor(Math.random() * 9999);
-            loadHistory(newId); // Load laci kosong/baru
-            startPeer(newId, true);
-        }
-
-        function joinGroup() {
-            saveName();
-            const targetId = document.getElementById('join-id-input').value.trim();
-            if(!targetId) return alert("Masukan ID Grup!");
-            
-            loadHistory(targetId); // Load laci grup tersebut
-            startPeer(targetId, false);
-        }
-
-        // --- PEERJS LOGIC ---
-
-        function startPeer(id, hostMode) {
-            isHost = hostMode;
-            
-            if (isHost) {
-                // Kalo Host, kita pake ID Grup sebagai Peer ID kita
-                peer = new Peer(id, peerConfig);
-                updateStatus("Menunggu teman join...");
+            if (asHost) {
+                // Host Mode: Kalau input kosong -> Random ID. Kalau ada -> Re-Host ID lama.
+                roomId = inputId || 'GRUP-' + Math.floor(Math.random() * 9999);
+                isHost = true;
+                initPeer(roomId);
             } else {
-                // Kalo Peserta, kita pake ID random
+                // Join Mode: Wajib ada ID
+                if (!inputId) return alert("Masukan ID Grup Teman!");
+                roomId = inputId;
+                isHost = false;
+                loadHistory(roomId); // Load chat lama dulu
+                initPeer(null); // Joiner pake random peer ID
+            }
+        }
+
+        function initPeer(id) {
+            if (isHost) {
+                loadHistory(roomId);
+                peer = new Peer(id, peerConfig);
+                updateStatus("Menyiapkan Grup...");
+            } else {
                 peer = new Peer(peerConfig);
-                updateStatus("Menghubungkan ke Host...");
+                updateStatus("Mencari Host...");
             }
 
-            peer.on('open', (myId) => {
-                if (!isHost) {
-                    // Langsung konek ke Host (ID Grup)
-                    hostConn = peer.connect(id, { metadata: { name: myName } });
-                    setupConn(hostConn);
+            peer.on('open', (pid) => {
+                document.getElementById('setup-panel').style.display = 'none';
+                document.getElementById('main-header').style.display = 'flex';
+                document.getElementById('main-footer').style.display = 'block';
+                document.getElementById('chat-area').style.display = 'flex';
+                
+                document.getElementById('chat-title').innerText = roomId;
+                document.getElementById('group-avatar').src = `https://api.dicebear.com/9.x/initials/svg?seed=${roomId}`;
+
+                if (isHost) {
+                    updateStatus("Anda Host 🟢");
+                } else {
+                    connectToHost(roomId);
                 }
             });
 
             peer.on('connection', (conn) => {
-                // Ini cuma jalan di Host
                 connections.push(conn);
                 setupConn(conn);
                 updateStatus(`${connections.length} Online`);
             });
-            
+
             peer.on('error', (err) => {
                 if(err.type === 'unavailable-id') {
-                    alert("ID Grup ini sedang dipakai orang lain / Host sedang aktif!");
-                    // Kalau mau join tapi ID udah dipake, berarti bener itu hostnya.
-                    // Tapi di sini PeerJS kadang bingung. 
-                    // Kita asumsikan error ini jarang terjadi di mode join.
-                } else {
-                    updateStatus("Error Koneksi.");
+                    alert("ID Grup ini sedang dipakai! Coba lagi nanti atau masuk sebagai Peserta.");
+                    location.reload();
+                } else if(err.type === 'peer-unavailable') {
+                    alert("Host Offline! Minta Host untuk 'Buat Grup' dulu.");
+                    location.reload();
                 }
             });
+        }
+
+        function connectToHost(hostId) {
+            hostConn = peer.connect(hostId, { metadata: { name: myName } });
+            setupConn(hostConn);
         }
 
         function setupConn(conn) {
             conn.on('open', () => {
                 updateStatus("Terhubung ✅");
-                if (!isHost) {
-                    // Kirim sinyal join
-                    conn.send({ type: 'sys', text: `${myName} bergabung` });
-                }
+                if(!isHost) conn.send({ type: 'sys', text: `${myName} bergabung` });
             });
-
-            conn.on('data', (data) => {
-                if (data.type === 'typing') {
-                    showTyping(data.sender);
-                    if (isHost) broadcast(data, conn.peer); // Relay typing
-                } else {
-                    // Pesan / Gambar
-                    if (isHost) {
-                        if(data.type !== 'sys') saveAndRender(data);
-                        broadcast(data, conn.peer);
-                    } else {
-                        saveAndRender(data);
-                    }
-                }
-            });
-
+            conn.on('data', (data) => handleData(data, conn));
             conn.on('close', () => {
                 connections = connections.filter(c => c !== conn);
-                updateStatus(isHost ? `${connections.length} Online` : "Koneksi Putus ❌");
+                updateStatus(isHost ? `${connections.length} Online` : "Terputus 🔴");
             });
         }
 
-        function broadcast(data, excludeId = null) {
+        function handleData(data, conn) {
+            if (data.type === 'typing') {
+                showTyping(data.sender);
+                if (isHost) broadcast(data, conn.peer);
+            } else {
+                // Pesan Biasa
+                playSound();
+                if (isHost) {
+                    if (data.type !== 'sys') saveAndRender(data);
+                    broadcast(data, conn.peer);
+                } else {
+                    saveAndRender(data);
+                }
+            }
+        }
+
+        function broadcast(data, excludeId) {
             connections.forEach(c => {
-                if (c.peer !== excludeId) c.send(data);
+                if(c.peer !== excludeId) c.send(data);
             });
         }
 
-        // --- MESSAGING ---
+        // --- 3. KIRIM PESAN & FILE ---
 
         function sendChat() {
             const input = document.getElementById('msg-input');
             const text = input.value;
             if (!text) return;
 
-            const msgData = { 
-                type: 'text', 
-                text: text, 
-                sender: myName, 
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+            const msgData = {
+                id: Date.now(), // ID Unik buat reply
+                type: 'text',
+                text: text,
+                sender: myName,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                replyTo: replyTo // Lampirkan data reply kalau ada
             };
 
-            saveAndRender(msgData, true); // Simpan di diri sendiri
-
-            if (isHost) broadcast(msgData);
-            else if (hostConn) hostConn.send(msgData);
-
+            processSend(msgData);
             input.value = "";
+            cancelReply();
         }
 
-        function handleImageUpload() {
+        function handleFileSelect() {
             const file = document.getElementById('file-input').files[0];
             if (!file) return;
-            if (file.size > 500000) return alert("Gambar max 500KB!");
+            if (file.size > 10 * 1024 * 1024) return alert("File max 10MB!"); // Limit 10MB
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const imgData = {
-                    type: 'image',
-                    content: e.target.result,
+                const isImg = file.type.startsWith('image/');
+                const msgData = {
+                    id: Date.now(),
+                    type: isImg ? 'image' : 'file',
+                    content: e.target.result, // Base64
+                    fileName: file.name,
                     sender: myName,
-                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    replyTo: replyTo
                 };
-                saveAndRender(imgData, true);
-                if (isHost) broadcast(imgData);
-                else if (hostConn) hostConn.send(imgData);
+                processSend(msgData);
+                cancelReply();
             };
             reader.readAsDataURL(file);
         }
 
+        function processSend(data) {
+            saveAndRender(data, true);
+            if (isHost) broadcast(data);
+            else if (hostConn) hostConn.send(data);
+        }
+
+        // --- 4. RENDER UI & FITUR ---
+
         function saveAndRender(data, isMe = false) {
-            // Simpan ke array local
             chatHistory.push({...data, isMe: isMe});
-            
-            // Simpan ke LocalStorage SPESIFIK GRUP INI
-            localStorage.setItem('p2p_chat_' + currentRoomId, JSON.stringify(chatHistory));
-            
+            localStorage.setItem('p2p_chat_' + roomId, JSON.stringify(chatHistory));
             renderMessage({...data, isMe: isMe});
+        }
+
+        function loadHistory(rid) {
+            chatHistory = JSON.parse(localStorage.getItem('p2p_chat_' + rid)) || [];
+            document.getElementById('chat-area').innerHTML = '';
+            chatHistory.forEach(msg => renderMessage(msg));
+            setTimeout(() => { document.getElementById('chat-area').scrollTop = 99999; }, 100);
         }
 
         function renderMessage(data) {
@@ -349,22 +387,41 @@
                 const isMe = data.isMe || (data.sender === myName);
                 div.className = "msg-row " + (isMe ? "me" : "them");
                 
-                const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${data.sender}`;
-                const avatarHtml = isMe ? '' : `<img src="${avatarUrl}" class="avatar-small">`;
-
-                let contentHtml = "";
-                if (data.type === 'image') {
-                    contentHtml = `<img src="${data.content}" class="chat-img" onclick="viewFull(this.src)">`;
-                } else {
-                    contentHtml = data.text;
+                // Avatar (Kalo them)
+                const avatar = isMe ? '' : `<img src="https://api.dicebear.com/9.x/avataaars/svg?seed=${data.sender}" style="width:28px; height:28px; border-radius:50%; margin-right:5px; align-self:flex-end;">`;
+                
+                // Reply Block
+                let replyHtml = '';
+                if (data.replyTo) {
+                    replyHtml = `
+                        <div class="reply-preview" style="margin-bottom:5px; border-left:3px solid var(--accent); background:rgba(0,0,0,0.1); padding:4px;">
+                            <div style="font-size:0.7rem; color:var(--accent); font-weight:bold;">${data.replyTo.sender}</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                ${data.replyTo.type === 'image' ? '📷 Foto' : (data.replyTo.type === 'file' ? '📁 File' : data.replyTo.text)}
+                            </div>
+                        </div>
+                    `;
                 }
 
+                // Content
+                let contentHtml = '';
+                if (data.type === 'image') contentHtml = `<img src="${data.content}" class="chat-img" onclick="viewImage(this.src)">`;
+                else if (data.type === 'file') contentHtml = `<a href="${data.content}" download="${data.fileName}" class="chat-file"><i class="fas fa-file-alt"></i> ${data.fileName}</a>`;
+                else contentHtml = `<span>${data.text}</span>`;
+
+                // Status Centang
+                const ticks = isMe ? `<i class="fas fa-check-double ticks ${hostConn || isHost ? 'read' : ''}"></i>` : '';
+
                 div.innerHTML = `
-                    ${avatarHtml}
-                    <div class="msg-bubble">
+                    ${avatar}
+                    <div class="msg-bubble" ondblclick='initReply(${JSON.stringify(data)})'>
+                        ${replyHtml}
                         <span class="sender-name">${isMe ? '' : data.sender}</span>
                         ${contentHtml}
-                        <span class="timestamp">${data.time}</span>
+                        <div class="meta-row">
+                            <span class="timestamp">${data.time}</span>
+                            ${ticks}
+                        </div>
                     </div>
                 `;
             }
@@ -372,56 +429,78 @@
             area.scrollTop = area.scrollHeight;
         }
 
-        // --- UTILITIES & UI ---
-
-        function updateStatus(txt) {
-            document.getElementById('connection-status').innerText = txt;
+        // --- REPLY SYSTEM ---
+        function initReply(msgData) {
+            replyTo = msgData;
+            document.getElementById('reply-bar').style.display = 'flex';
+            document.getElementById('reply-target-name').innerText = "Membalas " + msgData.sender;
+            document.getElementById('reply-target-text').innerText = msgData.type === 'text' ? msgData.text : (msgData.type === 'image' ? '📷 Foto' : '📁 Dokumen');
+            document.getElementById('msg-input').focus();
         }
 
-        function sendTypingSignal() {
-            const signal = { type: 'typing', sender: myName };
-            if (isHost) broadcast(signal);
-            else if (hostConn) hostConn.send(signal);
+        function cancelReply() {
+            replyTo = null;
+            document.getElementById('reply-bar').style.display = 'none';
         }
 
-        function showTyping(name) {
-            const el = document.getElementById('typing-indicator');
-            const stat = document.getElementById('connection-status');
-            el.innerText = `${name} mengetik...`;
-            el.style.display = 'block';
-            stat.style.display = 'none';
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                el.style.display = 'none';
-                stat.style.display = 'block';
-            }, 1000);
-        }
-
-        // FITUR BARU: SHOW INVITE MODAL
-        function showInviteModal() {
-            document.getElementById('invite-id-display').value = currentRoomId;
-            document.getElementById('invite-modal').style.display = 'flex';
-        }
-
-        // FITUR BARU: CLEAR CHAT
-        function clearChat() {
-            if(confirm("Hapus semua chat di grup ini?")) {
-                localStorage.removeItem('p2p_chat_' + currentRoomId);
-                chatHistory = [];
-                document.getElementById('chat-area').innerHTML = '';
+        // --- UTILS & THEME ---
+        function toggleTheme(switchIt = true) {
+            const body = document.body;
+            const icon = document.getElementById('theme-icon');
+            if (switchIt) {
+                const newTheme = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            }
+            // Update Icon
+            if (body.getAttribute('data-theme') === 'light') {
+                icon.className = "fas fa-moon";
+            } else {
+                icon.className = "fas fa-sun";
             }
         }
 
-        function copyId(el) {
-            el.select();
-            document.execCommand("copy");
-            alert("ID Tersalin!");
+        function updateStatus(txt) { document.getElementById('connection-status').innerText = txt; }
+        
+        function sendTypingSignal() {
+            const s = { type: 'typing', sender: myName };
+            if(isHost) broadcast(s); else if(hostConn) hostConn.send(s);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {}, 2000);
+        }
+        
+        function showTyping(name) {
+            const el = document.getElementById('typing-indicator');
+            const stat = document.getElementById('connection-status');
+            el.innerText = `${name} mengetik...`; el.style.display='block'; stat.style.display='none';
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => { el.style.display='none'; stat.style.display='block'; }, 1000);
         }
 
-        function viewFull(src) {
-            document.getElementById('img-full').src = src;
-            document.getElementById('img-modal').style.display = 'flex';
+        function playSound() {
+            // Suara Ting sederhana (Base64)
+            const audio = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU");
+            audio.play().catch(e=>{}); 
+        }
+
+        function showInvite() { 
+            document.getElementById('invite-id').value = roomId; 
+            document.getElementById('invite-modal').style.display = 'flex'; 
+        }
+        
+        function copyId(el) { el.select(); document.execCommand("copy"); alert("ID Disalin!"); }
+        
+        function viewImage(src) {
+            const w = window.open("");
+            w.document.write(`<img src="${src}" style="width:100%">`);
+        }
+
+        function clearChat() {
+            if(confirm("Hapus semua chat?")) {
+                localStorage.removeItem('p2p_chat_'+roomId);
+                document.getElementById('chat-area').innerHTML = '';
+                chatHistory = [];
+            }
         }
     </script>
 </body>
