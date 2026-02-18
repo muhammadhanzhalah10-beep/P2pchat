@@ -3,131 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat P2P - Ultimate</title>
+    <title>Chat P2P - Multi Group</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"> <style>
-        /* --- TAMPILAN ALA WHATSAPP DARK MODE --- */
-        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: #111b21; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* --- STYLE MIRIP SEBELUMNYA (TAPI LEBIH RAPI) --- */
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
         
-        /* HEADER */
-        .header { background: #202c33; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2f3b43; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 10; }
-        .header h3 { margin: 0; font-size: 1.1rem; color: #aebac1; }
-        .status-dot { height: 10px; width: 10px; background-color: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .status-online { background-color: #00a884; box-shadow: 0 0 5px #00a884; }
+        /* HEADER UTAMA */
+        .header { background: #202c33; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2f3b43; height: 60px; box-sizing: border-box; z-index: 20; }
+        .header-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+        .avatar-header { width: 38px; height: 38px; border-radius: 50%; background: #333; flex-shrink: 0; }
+        .chat-info { overflow: hidden; }
+        .chat-info h3 { margin: 0; font-size: 1rem; color: #e9edef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .status-text { font-size: 0.75rem; color: #8696a0; display: block; }
+        .typing-text { color: #00a884; font-weight: bold; animation: pulse 1s infinite; display: none; }
+        
+        /* TOMBOL HEADER (INVITE) */
+        .header-actions { display: flex; gap: 15px; }
+        .header-icon { font-size: 1.2rem; color: #aebac1; cursor: pointer; }
+        .header-icon:hover { color: #fff; }
 
-        /* LOGIN / SETUP AREA */
-        #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111b21; z-index: 999; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .card { background: #202c33; padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center; }
-        input { width: 90%; padding: 12px; margin: 10px 0; background: #2a3942; border: none; color: white; border-radius: 8px; outline: none; text-align: center; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* SETUP PANEL */
+        #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111b21; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+        .card { background: #202c33; padding: 25px; border-radius: 10px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #2a3942; border: none; color: white; border-radius: 8px; outline: none; text-align: center; box-sizing: border-box; }
         
-        /* TOMBOL */
-        .btn { padding: 12px; width: 95%; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        .btn { padding: 12px; width: 100%; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; margin-top: 8px; transition: 0.2s; font-size: 0.9rem; }
         .btn-green { background: #00a884; color: #111b21; }
-        .btn-green:hover { background: #008f6f; }
         .btn-outline { background: transparent; border: 1px solid #00a884; color: #00a884; }
 
         /* AREA CHAT */
-        #chat-area { flex: 1; overflow-y: auto; padding: 10px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; background-size: 400px; opacity: 1; display: flex; flex-direction: column; gap: 5px; }
-        /* Overlay gelap untuk background */
-        #chat-area::before { content: ""; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(10, 16, 20, 0.95); z-index: -1; pointer-events: none; }
+        #chat-area { flex: 1; overflow-y: auto; padding: 15px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: 300px; position: relative; display: flex; flex-direction: column; gap: 8px; }
+        #chat-area::before { content: ""; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(11, 20, 26, 0.95); z-index: -1; pointer-events: none; }
 
         /* BUBBLE CHAT */
-        .msg-row { display: flex; width: 100%; margin-bottom: 2px; }
-        .msg-bubble { max-width: 75%; padding: 6px 10px; border-radius: 8px; font-size: 0.95rem; position: relative; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg-row { display: flex; width: 100%; align-items: flex-end; margin-bottom: 2px; }
+        .avatar-small { width: 28px; height: 28px; border-radius: 50%; margin-right: 8px; margin-bottom: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         
-        /* Pesan Kita (Kanan + Hijau) */
+        .msg-bubble { max-width: 70%; padding: 6px 10px; border-radius: 8px; font-size: 0.95rem; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+        
         .me { justify-content: flex-end; }
         .me .msg-bubble { background: #005c4b; color: #e9edef; border-top-right-radius: 0; }
-        
-        /* Pesan Teman (Kiri + Abu) */
+        .me .avatar-small { display: none; } 
+
         .them { justify-content: flex-start; }
         .them .msg-bubble { background: #202c33; color: #e9edef; border-top-left-radius: 0; }
 
-        /* Pesan Sistem (Tengah) */
-        .sys { justify-content: center; margin: 10px 0; }
-        .sys .msg-bubble { background: #182229; color: #8696a0; font-size: 0.75rem; border-radius: 10px; padding: 5px 12px; box-shadow: none; }
+        .sys { justify-content: center; margin: 15px 0; }
+        .sys .msg-bubble { background: #182229; color: #8696a0; font-size: 0.75rem; border-radius: 15px; padding: 5px 15px; box-shadow: none; text-align: center; }
 
-        .sender-name { font-size: 0.75rem; font-weight: bold; color: #aebac1; margin-bottom: 2px; display: block; }
-        .me .sender-name { display: none; } /* Nama kita sendiri gausah ditampilin */
-        .them .sender-name { color: #53bdeb; } /* Warna nama temen */
+        .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: #aebac1; }
+        .them .sender-name { color: #53bdeb; }
         
-        .timestamp { font-size: 0.65rem; color: #8696a0; float: right; margin-top: 5px; margin-left: 10px; }
+        .timestamp { font-size: 0.65rem; color: #8696a0; align-self: flex-end; margin-top: 4px; }
+        .chat-img { max-width: 100%; border-radius: 6px; margin-top: 5px; cursor: pointer; }
 
-        /* GAMBAR */
-        .chat-img { max-width: 100%; border-radius: 5px; margin-top: 5px; cursor: pointer; }
-
-        /* FOOTER / INPUT */
-        .footer { background: #202c33; padding: 8px 10px; display: flex; align-items: center; gap: 8px; z-index: 10; }
-        .input-box { flex: 1; background: #2a3942; border-radius: 20px; padding: 10px 15px; color: white; border: none; outline: none; }
-        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; }
-        .icon-btn:hover { color: #aebac1; }
-        .send-btn { background: #00a884; border: none; width: 40px; height: 40px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        /* FOOTER */
+        .footer { background: #202c33; padding: 8px 10px; display: flex; align-items: center; gap: 10px; z-index: 20; }
+        .input-box { flex: 1; background: #2a3942; border-radius: 20px; padding: 12px 15px; color: white; border: none; outline: none; font-size: 1rem; }
+        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.3rem; cursor: pointer; padding: 5px; }
+        .send-btn { background: #00a884; border: none; width: 45px; height: 45px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         
-        /* MODAL GAMBAR */
         #file-input { display: none; }
+        
+        /* MODAL POPUP (Buat Invite & View Gambar) */
+        .modal-overlay { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
+        .modal-box { background: #202c33; padding: 20px; border-radius: 10px; text-align: center; width: 80%; max-width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .modal-title { color: #00a884; font-weight: bold; margin-bottom: 10px; }
+        #img-full { max-width:95%; max-height:90vh; border-radius:5px; }
     </style>
 </head>
 <body>
 
-    <audio id="notif-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"></audio>
-
     <div id="setup-panel">
-        <h2 style="color: #00a884; margin-bottom: 20px;"><i class="fab fa-whatsapp"></i> P2P Chat</h2>
-        
+        <h2 style="color: #00a884; margin-bottom: 20px;"><i class="fas fa-users"></i> Multi-Grup Chat</h2>
         <div class="card">
-            <label style="color:#8696a0; font-size:0.9rem;">Nama Kamu</label>
-            <input type="text" id="username-input" placeholder="Ketik nama...">
+            <img id="my-avatar-preview" src="https://api.dicebear.com/9.x/avataaars/svg?seed=Guest" style="width:70px; height:70px; border-radius:50%; border: 2px solid #00a884; margin-bottom:10px;">
+            <input type="text" id="username-input" placeholder="Nama Kamu..." oninput="updateAvatarPreview()">
             
             <hr style="border-color: #2a3942; margin: 15px 0;">
             
-            <button onclick="startHost()" class="btn btn-green">Buat Grup Baru (HOST)</button>
-            <div id="host-info" style="display:none; margin-top:10px;">
-                <p style="font-size:0.8rem; color:#8696a0;">ID Grup Kamu:</p>
-                <input type="text" id="my-room-id" readonly style="color:#00e676; font-weight:bold; cursor:copy;" onclick="copyId(this)">
-                <p style="font-size:0.7rem; color:#8696a0;">*Klik ID untuk menyalin & kirim ke teman</p>
-                <button onclick="enterChatMode()" class="btn btn-outline">Masuk ke Chat</button>
-            </div>
-            
-            <p style="margin: 10px 0; color:#8696a0;">- ATAU -</p>
-            
-            <input type="text" id="join-id-input" placeholder="Tempel ID Grup Teman Disini">
-            <button onclick="joinRoom()" class="btn btn-outline">Gabung Grup</button>
+            <button onclick="createGroup()" class="btn btn-green">Buat Grup Baru</button>
+            <p style="margin: 10px 0; color:#8696a0; font-size: 0.8rem;">- ATAU -</p>
+            <input type="text" id="join-id-input" placeholder="Masukan ID Grup">
+            <button onclick="joinGroup()" class="btn btn-outline">Masuk Grup</button>
         </div>
-        <p style="margin-top:20px; font-size:0.8rem; color:#555;">Riwayat chat tersimpan otomatis.</p>
     </div>
 
     <div class="header" id="main-header" style="display:none;">
-        <div style="display:flex; align-items:center;">
-            <i class="fas fa-arrow-left icon-btn" onclick="location.reload()" style="font-size:1rem; margin-right:10px;"></i>
-            <div>
+        <div class="header-left">
+            <i class="fas fa-arrow-left icon-btn" onclick="location.reload()" style="font-size:1rem; margin-right: 5px;"></i>
+            <img src="https://api.dicebear.com/9.x/initials/svg?seed=GC" class="avatar-header" id="group-avatar">
+            <div class="chat-info" style="margin-left: 10px;">
                 <h3 id="chat-title">Grup Chat</h3>
-                <span id="connection-status" style="font-size: 0.75rem; color: #8696a0;">Menunggu koneksi...</span>
+                <span id="connection-status" class="status-text">Menunggu...</span>
+                <span id="typing-indicator" class="status-text typing-text">...</span>
             </div>
         </div>
-        <div>
-            <span class="status-dot" id="status-dot"></span>
+        <div class="header-actions">
+            <i class="fas fa-user-plus header-icon" onclick="showInviteModal()" title="Invite Teman"></i>
+            <i class="fas fa-trash header-icon" onclick="clearChat()" title="Hapus Chat"></i>
         </div>
     </div>
 
-    <div id="chat-area" style="display:none;">
-        </div>
+    <div id="chat-area" style="display:none;"></div>
 
     <div class="footer" id="main-footer" style="display:none;">
-        <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-camera"></i></button>
+        <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-paperclip"></i></button>
         <input type="file" id="file-input" accept="image/*" onchange="handleImageUpload()">
-        
-        <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
+        <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()" oninput="sendTypingSignal()">
         <button class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
     </div>
 
+    <div id="invite-modal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+        <div class="modal-box">
+            <div class="modal-title">UNDANG TEMAN</div>
+            <p style="font-size:0.9rem; color:#e9edef;">Bagikan ID Grup ini:</p>
+            <input type="text" id="invite-id-display" readonly style="font-weight:bold; color:#00e676; cursor:pointer;" onclick="copyId(this)">
+            <button class="btn btn-green" onclick="copyId(document.getElementById('invite-id-display'))">SALIN ID</button>
+        </div>
+    </div>
+
+    <div id="img-modal" class="modal-overlay" onclick="this.style.display='none'">
+        <img id="img-full">
+    </div>
+
     <script>
-        // --- 1. KONFIGURASI & VARIABEL ---
+        // --- KONFIGURASI ---
         const peerConfig = {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     {
-                        // AKUN METERED.CA LU (JANGAN DIHAPUS)
                         urls: "turn:global.relay.metered.ca:80",
                         username: "e0c85ce62faba6edf920d892",
                         credential: "g2dtUiurVlwXzt9d"
@@ -138,120 +148,145 @@
 
         let peer = null;
         let myName = localStorage.getItem('p2p_username') || "";
-        let connections = []; // Untuk Host
-        let hostConn = null;  // Untuk Peserta
+        let currentRoomId = ""; // INI KUNCINYA (ID Grup saat ini)
+        let connections = []; 
+        let hostConn = null;
         let isHost = false;
-        let chatHistory = JSON.parse(localStorage.getItem('p2p_history')) || [];
+        let chatHistory = [];
+        let typingTimeout;
 
-        // Inisialisasi awal
+        // Setup Init
         document.getElementById('username-input').value = myName;
+        updateAvatarPreview();
 
-        // Render history lama kalau ada
-        // Kita render di background dulu, nanti pas masuk chat baru keliatan
-        chatHistory.forEach(msg => renderMessage(msg));
+        // --- FUNGSI UTAMA ---
 
+        function updateAvatarPreview() {
+            const val = document.getElementById('username-input').value || "Guest";
+            document.getElementById('my-avatar-preview').src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${val}`;
+        }
 
-        // --- 2. FUNGSI UTAMA (HOST & JOIN) ---
-        
         function saveName() {
             myName = document.getElementById('username-input').value || "Anonim";
             localStorage.setItem('p2p_username', myName);
         }
 
-        function startHost() {
-            saveName();
-            const roomId = 'GRUP-' + Math.floor(Math.random() * 99999);
-            peer = new Peer(roomId, peerConfig);
-            isHost = true;
-
-            document.getElementById('status-dot').className = "status-dot status-online"; // Host selalu online buat diri sendiri
-
-            peer.on('open', (id) => {
-                document.getElementById('host-info').style.display = 'block';
-                document.getElementById('my-room-id').value = id;
-            });
-
-            peer.on('connection', (conn) => {
-                connections.push(conn);
-                setupConnection(conn);
-                updateStatus(connections.length + " Orang Online");
-            });
-
-            // Auto masuk ke tampilan chat tapi panel host tetep ada buat copy ID
-        }
-
-        function joinRoom() {
-            saveName();
-            const hostId = document.getElementById('join-id-input').value.trim();
-            if(!hostId) return alert("Masukan ID Grup dulu!");
-
-            peer = new Peer(peerConfig);
-            isHost = false;
-
-            peer.on('open', () => {
-                updateStatus("Menghubungkan ke Host...");
-                hostConn = peer.connect(hostId, { metadata: { name: myName } });
-                
-                hostConn.on('open', () => {
-                    enterChatMode();
-                    updateStatus("Terhubung ✅");
-                    document.getElementById('status-dot').className = "status-dot status-online";
-                    
-                    // Host conn logic
-                    hostConn.on('data', handleData);
-                    hostConn.on('close', () => updateStatus("Koneksi Putus ❌"));
-                });
-                
-                hostConn.on('error', (err) => alert("Gagal konek: " + err));
-            });
-        }
-
-        function enterChatMode() {
+        // --- LOAD HISTORY BERDASARKAN GRUP ID (PERBAIKAN UTAMA) ---
+        function loadHistory(roomId) {
+            currentRoomId = roomId;
+            // Kuncinya: p2p_chat_IDGRUP. Jadi tiap grup beda laci.
+            const key = 'p2p_chat_' + roomId;
+            chatHistory = JSON.parse(localStorage.getItem(key)) || [];
+            
+            // Bersihkan layar dulu
+            document.getElementById('chat-area').innerHTML = '';
+            // Render ulang
+            chatHistory.forEach(msg => renderMessage(msg));
+            
+            // Update UI Header
+            document.getElementById('chat-title').innerText = roomId;
+            document.getElementById('group-avatar').src = `https://api.dicebear.com/9.x/initials/svg?seed=${roomId}`;
             document.getElementById('setup-panel').style.display = 'none';
             document.getElementById('main-header').style.display = 'flex';
             document.getElementById('chat-area').style.display = 'flex';
             document.getElementById('main-footer').style.display = 'flex';
-            
-            // Scroll ke paling bawah
-            const area = document.getElementById('chat-area');
-            area.scrollTop = area.scrollHeight;
         }
 
-        // --- 3. LOGIKA PESAN & BROADCAST ---
+        function createGroup() {
+            saveName();
+            const newId = 'GRUP-' + Math.floor(Math.random() * 9999);
+            loadHistory(newId); // Load laci kosong/baru
+            startPeer(newId, true);
+        }
 
-        function setupConnection(conn) {
+        function joinGroup() {
+            saveName();
+            const targetId = document.getElementById('join-id-input').value.trim();
+            if(!targetId) return alert("Masukan ID Grup!");
+            
+            loadHistory(targetId); // Load laci grup tersebut
+            startPeer(targetId, false);
+        }
+
+        // --- PEERJS LOGIC ---
+
+        function startPeer(id, hostMode) {
+            isHost = hostMode;
+            
+            if (isHost) {
+                // Kalo Host, kita pake ID Grup sebagai Peer ID kita
+                peer = new Peer(id, peerConfig);
+                updateStatus("Menunggu teman join...");
+            } else {
+                // Kalo Peserta, kita pake ID random
+                peer = new Peer(peerConfig);
+                updateStatus("Menghubungkan ke Host...");
+            }
+
+            peer.on('open', (myId) => {
+                if (!isHost) {
+                    // Langsung konek ke Host (ID Grup)
+                    hostConn = peer.connect(id, { metadata: { name: myName } });
+                    setupConn(hostConn);
+                }
+            });
+
+            peer.on('connection', (conn) => {
+                // Ini cuma jalan di Host
+                connections.push(conn);
+                setupConn(conn);
+                updateStatus(`${connections.length} Online`);
+            });
+            
+            peer.on('error', (err) => {
+                if(err.type === 'unavailable-id') {
+                    alert("ID Grup ini sedang dipakai orang lain / Host sedang aktif!");
+                    // Kalau mau join tapi ID udah dipake, berarti bener itu hostnya.
+                    // Tapi di sini PeerJS kadang bingung. 
+                    // Kita asumsikan error ini jarang terjadi di mode join.
+                } else {
+                    updateStatus("Error Koneksi.");
+                }
+            });
+        }
+
+        function setupConn(conn) {
             conn.on('open', () => {
-                // Kirim info user join
-                broadcast({ type: 'sys', text: 'Teman baru bergabung!' });
+                updateStatus("Terhubung ✅");
+                if (!isHost) {
+                    // Kirim sinyal join
+                    conn.send({ type: 'sys', text: `${myName} bergabung` });
+                }
             });
 
             conn.on('data', (data) => {
-                if (isHost) {
-                    // Tampilkan di layar Host
-                    if(data.type !== 'sys') saveAndRender(data);
-                    
-                    // Broadcast ke semua kecuali pengirim
-                    broadcast(data, conn.peer); 
+                if (data.type === 'typing') {
+                    showTyping(data.sender);
+                    if (isHost) broadcast(data, conn.peer); // Relay typing
+                } else {
+                    // Pesan / Gambar
+                    if (isHost) {
+                        if(data.type !== 'sys') saveAndRender(data);
+                        broadcast(data, conn.peer);
+                    } else {
+                        saveAndRender(data);
+                    }
                 }
             });
 
             conn.on('close', () => {
                 connections = connections.filter(c => c !== conn);
-                updateStatus(connections.length + " Orang Online");
+                updateStatus(isHost ? `${connections.length} Online` : "Koneksi Putus ❌");
             });
         }
 
         function broadcast(data, excludeId = null) {
-            connections.forEach(conn => {
-                if (conn.peer !== excludeId) conn.send(data);
+            connections.forEach(c => {
+                if (c.peer !== excludeId) c.send(data);
             });
         }
 
-        function handleData(data) {
-            saveAndRender(data);
-            // Mainkan suara notif
-            playSound();
-        }
+        // --- MESSAGING ---
 
         function sendChat() {
             const input = document.getElementById('msg-input');
@@ -265,53 +300,41 @@
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             };
 
-            // 1. Tampilkan & Simpan di diri sendiri
-            saveAndRender(msgData, true);
+            saveAndRender(msgData, true); // Simpan di diri sendiri
 
-            // 2. Kirim
-            if (isHost) {
-                broadcast(msgData);
-            } else if (hostConn) {
-                hostConn.send(msgData);
-            }
+            if (isHost) broadcast(msgData);
+            else if (hostConn) hostConn.send(msgData);
 
             input.value = "";
         }
 
-        // --- 4. KIRIM GAMBAR (BASE64) ---
         function handleImageUpload() {
             const file = document.getElementById('file-input').files[0];
             if (!file) return;
-
-            // Batasi ukuran biar ga crash (max 500KB aman buat PeerJS)
-            if (file.size > 500000) return alert("Gambar terlalu besar! Max 500KB.");
+            if (file.size > 500000) return alert("Gambar max 500KB!");
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 const imgData = {
                     type: 'image',
-                    content: e.target.result, // Base64 string
+                    content: e.target.result,
                     sender: myName,
                     time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                 };
-                
                 saveAndRender(imgData, true);
-
                 if (isHost) broadcast(imgData);
                 else if (hostConn) hostConn.send(imgData);
             };
             reader.readAsDataURL(file);
         }
 
-        // --- 5. RENDER UI & SAVE LOCALSTORAGE ---
-        
         function saveAndRender(data, isMe = false) {
-            // Simpan ke history array
-            chatHistory.push({...data, isMe: isMe}); // Simpan status isMe juga biar pas load tau itu chat siapa
-            // Simpan ke LocalStorage
-            localStorage.setItem('p2p_history', JSON.stringify(chatHistory));
+            // Simpan ke array local
+            chatHistory.push({...data, isMe: isMe});
             
-            // Render
+            // Simpan ke LocalStorage SPESIFIK GRUP INI
+            localStorage.setItem('p2p_chat_' + currentRoomId, JSON.stringify(chatHistory));
+            
             renderMessage({...data, isMe: isMe});
         }
 
@@ -319,7 +342,6 @@
             const area = document.getElementById('chat-area');
             const div = document.createElement('div');
             
-            // Cek Tipe Pesan
             if (data.type === 'sys') {
                 div.className = "msg-row sys";
                 div.innerHTML = `<div class="msg-bubble">${data.text}</div>`;
@@ -327,52 +349,80 @@
                 const isMe = data.isMe || (data.sender === myName);
                 div.className = "msg-row " + (isMe ? "me" : "them");
                 
+                const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${data.sender}`;
+                const avatarHtml = isMe ? '' : `<img src="${avatarUrl}" class="avatar-small">`;
+
                 let contentHtml = "";
                 if (data.type === 'image') {
-                    contentHtml = `<img src="${data.content}" class="chat-img" onclick="viewImage(this.src)">`;
+                    contentHtml = `<img src="${data.content}" class="chat-img" onclick="viewFull(this.src)">`;
                 } else {
                     contentHtml = data.text;
                 }
 
                 div.innerHTML = `
+                    ${avatarHtml}
                     <div class="msg-bubble">
-                        <span class="sender-name">${data.sender}</span>
+                        <span class="sender-name">${isMe ? '' : data.sender}</span>
                         ${contentHtml}
                         <span class="timestamp">${data.time}</span>
                     </div>
                 `;
             }
-            
             area.appendChild(div);
-            area.scrollTop = area.scrollHeight; // Auto scroll ke bawah
+            area.scrollTop = area.scrollHeight;
         }
 
-        // Helpers
+        // --- UTILITIES & UI ---
+
         function updateStatus(txt) {
             document.getElementById('connection-status').innerText = txt;
+        }
+
+        function sendTypingSignal() {
+            const signal = { type: 'typing', sender: myName };
+            if (isHost) broadcast(signal);
+            else if (hostConn) hostConn.send(signal);
+        }
+
+        function showTyping(name) {
+            const el = document.getElementById('typing-indicator');
+            const stat = document.getElementById('connection-status');
+            el.innerText = `${name} mengetik...`;
+            el.style.display = 'block';
+            stat.style.display = 'none';
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                el.style.display = 'none';
+                stat.style.display = 'block';
+            }, 1000);
+        }
+
+        // FITUR BARU: SHOW INVITE MODAL
+        function showInviteModal() {
+            document.getElementById('invite-id-display').value = currentRoomId;
+            document.getElementById('invite-modal').style.display = 'flex';
+        }
+
+        // FITUR BARU: CLEAR CHAT
+        function clearChat() {
+            if(confirm("Hapus semua chat di grup ini?")) {
+                localStorage.removeItem('p2p_chat_' + currentRoomId);
+                chatHistory = [];
+                document.getElementById('chat-area').innerHTML = '';
+            }
         }
 
         function copyId(el) {
             el.select();
             document.execCommand("copy");
-            alert("ID Disalin: " + el.value);
-        }
-        
-        function playSound() {
-            // Bunyi notif sederhana
-            try {
-                // Link mp3 pendek (host gratisan) atau pakai audio context kalau mau pro
-                // Di sini kita pakai beep suara default browser/sistem kalau ada
-                 // const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                 // audio.play().catch(e => console.log("Audio play blocked"));
-            } catch(e) {}
+            alert("ID Tersalin!");
         }
 
-        function viewImage(src) {
-            const w = window.open("");
-            w.document.write('<img src="'+src+'" style="width:100%">');
+        function viewFull(src) {
+            document.getElementById('img-full').src = src;
+            document.getElementById('img-modal').style.display = 'flex';
         }
     </script>
 </body>
-    </html>
-    
+</html>
