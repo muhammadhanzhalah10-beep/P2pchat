@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat P2P Rahasia (PeerJS)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: monospace; max-width: 600px; margin: 20px auto; padding: 10px; background: #222; color: #0f0; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; background: #000; color: #fff; border: 1px solid #0f0; }
+        button { cursor: pointer; font-weight: bold; }
+        button:hover { background: #0f0; color: #000; }
+        #status { color: yellow; margin-bottom: 10px; border-bottom: 1px dashed #555; padding-bottom: 10px;}
+        #chat-log { height: 300px; overflow-y: scroll; border: 1px solid #555; padding: 10px; margin-top: 10px; background: #111; }
+        .msg { margin-bottom: 5px; }
+        .me { color: cyan; text-align: right; } /* Chat kita */
+        .them { color: magenta; text-align: left; } /* Chat temen */
+        .sys { color: #888; font-style: italic; } /* Info sistem */
+    </style>
+</head>
+<body>
+
+    <h1>🕵️ P2P Chat (No Database)</h1>
+    
+    <div id="my-id-container">
+        <p>ID Kamu (Kasih ini ke temen):</p>
+        <input type="text" id="my-id" readonly value="Sedang membuat ID...">
+    </div>
+
+    <hr>
+
+    <div id="connect-container">
+        <p>Masukan ID Temen:</p>
+        <input type="text" id="friend-id" placeholder="Paste ID temen disini...">
+        <button onclick="connectToPeer()">Sambungkan Pipa P2P</button>
+    </div>
+
+    <div id="status">Status: Menunggu koneksi...</div>
+
+    <div id="chat-interface" style="display:none;">
+        <div id="chat-log"></div>
+        <input type="text" id="msg-input" placeholder="Ketik pesan rahasia...">
+        <button onclick="sendMessage()">Kirim</button>
+    </div>
+
+    <script>
+        // 1. Inisialisasi Peer (Mak Comblang gratisan dari PeerJS Cloud)
+        const peer = new Peer(); 
+        let conn = null; // Variabel untuk menyimpan koneksi aktif
+
+        // Saat berhasil dapet ID dari server PeerJS
+        peer.on('open', (id) => {
+            document.getElementById('my-id').value = id;
+            logSystem("ID kamu siap! Copy dan kirim ke temen.");
+        });
+
+        // 2. [PENERIMA] Jika ada temen yang mencoba konek ke kita
+        peer.on('connection', (c) => {
+            conn = c;
+            setupConnection();
+            logSystem("Seseorang terhubung ke kamu!");
+        });
+
+        // 3. [PENGIRIM] Fungsi tombol "Sambungkan"
+        function connectToPeer() {
+            const friendId = document.getElementById('friend-id').value;
+            if (!friendId) return alert("Isi ID temen dulu bro!");
+            
+            logSystem("Mencoba menghubungi " + friendId + "...");
+            conn = peer.connect(friendId); // Mulai inisiasi koneksi
+            
+            // Tunggu sampai beneran open (nyambung)
+            conn.on('open', () => {
+                setupConnection();
+                logSystem("Berhasil terhubung dengan inisiatif sendiri!");
+            });
+        }
+
+        // 4. Setup umum setelah koneksi terjalin (Baik pengirim/penerima)
+        function setupConnection() {
+            document.getElementById('status').innerText = "Status: TERHUBUNG (P2P Aktif) 🟢";
+            document.getElementById('connect-container').style.display = 'none'; // Sembunyikan form konek
+            document.getElementById('chat-interface').style.display = 'block';   // Munculin chat
+
+            // Dengerin kalau ada data masuk
+            conn.on('data', (data) => {
+                addMessage(data, 'them'); // Tampilkan pesan temen
+            });
+
+            conn.on('close', () => {
+                logSystem("Koneksi terputus.");
+                document.getElementById('status').innerText = "Status: Terputus 🔴";
+            });
+        }
+
+        // 5. Kirim Pesan
+        function sendMessage() {
+            const msgInput = document.getElementById('msg-input');
+            const msg = msgInput.value;
+            
+            if (conn && conn.open) {
+                conn.send(msg); // Kirim data lewat jalur P2P
+                addMessage(msg, 'me'); // Tampilkan di layar sendiri
+                msgInput.value = '';
+            } else {
+                alert("Koneksi belum siap bro!");
+            }
+        }
+
+        // Helper: Nampilin pesan di layar
+        function addMessage(msg, type) {
+            const chatLog = document.getElementById('chat-log');
+            const div = document.createElement('div');
+            div.className = 'msg ' + type;
+            div.innerText = (type === 'me' ? 'Me: ' : 'Temen: ') + msg;
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight; // Auto scroll ke bawah
+        }
+
+        function logSystem(msg) {
+            const chatLog = document.getElementById('chat-log');
+            const div = document.createElement('div');
+            div.className = 'msg sys';
+            div.innerText = '[System]: ' + msg;
+            chatLog.appendChild(div);
+        }
+    </script>
+</body>
+</html>
