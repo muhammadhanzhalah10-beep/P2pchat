@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-    <title>Chat P2P - Mobile Pro</title>
+    <title>Chat P2P - Clean Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* --- THEME CONFIG --- */
         :root {
             --bg-color: #0b141a;
             --header-bg: #202c33;
@@ -31,111 +30,78 @@
             --bubble-them: #ffffff;
         }
 
-        /* --- MOBILE LAYOUT FIX (100dvh) --- */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; 
-            background: var(--bg-color); 
-            color: var(--text-primary); 
-            /* KUNCI SUPAYA GAK TENGGELAM DI HP: */
-            height: 100dvh; 
-            width: 100%;
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
+            margin: 0; background: var(--bg-color); color: var(--text-primary); 
+            height: 100dvh; width: 100%; display: flex; flex-direction: column; overflow: hidden; 
         }
 
-        /* HEADER */
         .header { 
-            background: var(--header-bg); 
-            padding: 10px 15px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            height: 60px; 
-            flex-shrink: 0; /* Header gak boleh gepeng */
-            z-index: 50;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            background: var(--header-bg); padding: 10px 15px; display: flex; 
+            align-items: center; justify-content: space-between; height: 60px; 
+            flex-shrink: 0; z-index: 50; box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
         }
         .header-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
         .avatar-header { width: 40px; height: 40px; border-radius: 50%; }
         .chat-info h3 { margin: 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .status-text { font-size: 0.75rem; color: var(--text-secondary); }
-        .reconnect-btn { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 0.7rem; cursor: pointer; display: none; animation: pulse 2s infinite; }
+        .reconnect-btn { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 0.7rem; cursor: pointer; display: none; }
 
-        /* SETUP PANEL (FULL SCREEN) */
         #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100dvh; background: var(--bg-color); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
-        .card { background: var(--header-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .card { background: var(--header-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; border: 1px solid var(--border); }
         input { width: 100%; padding: 12px; margin: 10px 0; background: var(--input-bg); border: none; color: var(--text-primary); border-radius: 8px; box-sizing: border-box; text-align: center; font-size: 1rem; }
         .btn { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 25px; font-weight: bold; font-size: 1rem; cursor: pointer; }
         .btn-green { background: var(--accent); color: white; }
         .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
 
-        /* CHAT AREA (SCROLLABLE) */
-        #chat-area { 
-            flex: 1; /* Ambil sisa ruang */
-            overflow-y: auto; 
-            padding: 15px; 
-            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); 
-            background-size: 300px; 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 5px;
-            scroll-behavior: smooth;
-        }
-        #chat-area::before { content: ""; position: absolute; top:0; left:0; width:100%; height:100%; background: var(--bg-color); opacity: 0.93; z-index: -1; pointer-events: none; }
+        #chat-area { flex: 1; overflow-y: auto; padding: 15px; background-size: 300px; position: relative; display: flex; flex-direction: column; gap: 5px; scroll-behavior: smooth; }
+        #chat-area::before { content: ""; position: absolute; top:0; left:0; width:100%; height:100%; background: var(--bg-color); z-index: -1; pointer-events: none; }
 
-        /* BUBBLES */
         .msg-row { display: flex; width: 100%; margin-bottom: 2px; }
-        .msg-bubble { max-width: 80%; padding: 6px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg-bubble { max-width: 80%; padding: 6px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; word-wrap: break-word; display: flex; flex-direction: column; }
         .me { justify-content: flex-end; } .me .msg-bubble { background: var(--bubble-me); border-top-right-radius: 0; }
         .them { justify-content: flex-start; } .them .msg-bubble { background: var(--bubble-them); border-top-left-radius: 0; }
         .sys { justify-content: center; margin: 10px 0; } .sys .msg-bubble { background: var(--input-bg); color: var(--text-secondary); font-size: 0.75rem; border-radius: 20px; text-align: center; }
+        
         .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: #fca103; }
-        .timestamp { font-size: 0.65rem; color: var(--text-secondary); align-self: flex-end; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+        
+        .meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; }
+        .timestamp { font-size: 0.65rem; color: var(--text-secondary); }
+        .reply-icon { font-size: 0.7rem; color: var(--text-secondary); cursor: pointer; padding: 2px 5px; }
+        
         .chat-img { max-width: 100%; border-radius: 6px; margin-top: 5px; cursor: pointer; }
-        .chat-file { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 5px; margin-top: 5px; text-decoration: none; color: var(--text-primary); }
+        .chat-file { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 5px; margin-top: 5px; text-decoration: none; color: var(--text-primary); border: 1px solid var(--border); }
 
-        /* FOOTER (INPUT) */
-        .footer-container { 
-            background: var(--header-bg); 
-            padding: 5px 10px; 
-            flex-shrink: 0; /* Footer gak boleh ilang */
-            z-index: 50; 
-            padding-bottom: 10px; /* Safe area */
-        }
+        .reply-bar { background: var(--input-bg); padding: 8px 15px; border-left: 5px solid var(--accent); display: none; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; }
+        .reply-content { flex: 1; font-size: 0.8rem; }
+        .reply-sender { color: var(--accent); font-weight: bold; font-size: 0.75rem; }
+        .reply-text { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
+
+        .footer-container { background: var(--header-bg); padding: 5px 10px; flex-shrink: 0; z-index: 50; padding-bottom: 10px; }
         .footer { display: flex; align-items: center; gap: 8px; }
         .input-box { flex: 1; background: var(--input-bg); border-radius: 20px; padding: 10px 15px; color: var(--text-primary); border: none; font-size: 1rem; max-height: 100px; outline: none; }
         .icon-btn { color: var(--text-secondary); font-size: 1.4rem; padding: 5px; cursor: pointer; }
-        .send-btn { background: var(--accent); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
+        .send-btn { background: var(--accent); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-        /* LOADING & MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; justify-content: center; align-items: center; }
         .modal-box { background: var(--header-bg); padding: 20px; border-radius: 10px; width: 80%; max-width: 300px; text-align: center; }
-        
         #upload-progress { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 5000; flex-direction: column; justify-content: center; align-items: center; color: white; }
         .spinner { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
 </head>
 <body data-theme="dark">
 
-    <div id="upload-progress">
-        <div class="spinner"></div>
-        <h3 id="upload-text">Memproses File...</h3>
-        <p style="font-size: 0.8rem; color: #ccc;">Jangan tutup browser!</p>
-    </div>
+    <div id="upload-progress"><div class="spinner"></div><h3 id="upload-text">Processing...</h3></div>
 
     <div id="setup-panel">
         <div class="card">
-            <h2 style="color:var(--accent); margin-bottom: 10px;"><i class="fab fa-whatsapp"></i> Chat P2P</h2>
-            <img id="my-avatar-preview" src="" style="width:70px; height:70px; border-radius:50%; margin-bottom: 10px;">
-            <input type="text" id="username-input" placeholder="Nama Kamu..." oninput="updateAvatar()">
-            <input type="text" id="room-input" placeholder="ID Grup (Kosongkan utk Baru)">
-            <button onclick="startApp(true)" class="btn btn-green">Buat / Host</button>
-            <button onclick="startApp(false)" class="btn btn-outline">Masuk Grup</button>
+            <h2 style="color:var(--accent); margin-bottom: 10px;">P2P Chat</h2>
+            <img id="my-avatar-preview" src="" style="width:70px; height:70px; border-radius:50%; margin-bottom: 10px; border: 1px solid var(--accent);">
+            <input type="text" id="username-input" placeholder="Username..." oninput="updateAvatar()">
+            <input type="text" id="room-input" placeholder="Group ID...">
+            <button onclick="startApp(true)" class="btn btn-green">Create / Host</button>
+            <button onclick="startApp(false)" class="btn btn-outline">Join Group</button>
         </div>
     </div>
 
@@ -144,9 +110,9 @@
             <i class="fas fa-arrow-left icon-btn" onclick="location.reload()"></i>
             <img id="group-avatar" class="avatar-header" src="">
             <div class="chat-info" style="margin-left: 10px;">
-                <h3 id="chat-title">Grup</h3>
-                <span id="connection-status" class="status-text">Menunggu...</span>
-                <button id="reconnect-btn" class="reconnect-btn" onclick="retryConnection()">🔄 KONEK ULANG</button>
+                <h3 id="chat-title">Group</h3>
+                <span id="connection-status" class="status-text">Waiting...</span>
+                <button id="reconnect-btn" class="reconnect-btn" onclick="retryConnection()">/ RECONNECT</button>
             </div>
         </div>
         <div>
@@ -158,28 +124,33 @@
     <div id="chat-area" style="display:none;"></div>
 
     <div class="footer-container" id="main-footer" style="display:none;">
+        <div id="reply-bar" class="reply-bar">
+            <div class="reply-content">
+                <div id="reply-target-name" class="reply-sender"></div>
+                <div id="reply-target-text" class="reply-text"></div>
+            </div>
+            <i class="fas fa-times" onclick="cancelReply()" style="padding:10px; color:var(--text-secondary); cursor:pointer;"></i>
+        </div>
+
         <div class="footer">
             <i class="fas fa-plus icon-btn" onclick="document.getElementById('file-input').click()"></i>
             <input type="file" id="file-input" style="display:none" onchange="handleFileSelect()">
-            
-            <input type="text" id="msg-input" class="input-box" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
+            <input type="text" id="msg-input" class="input-box" placeholder="Type message..." onkeypress="if(event.key==='Enter') sendChat()">
             <div class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></div>
         </div>
     </div>
 
     <div id="invite-modal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
         <div class="modal-box">
-            <h3 style="color:var(--accent)">ID GRUP</h3>
+            <h3 style="color:var(--accent)">GROUP ID</h3>
             <input type="text" id="invite-id" readonly onclick="copyId(this)" style="width:100%; font-weight:bold; color:var(--accent); cursor:pointer; background: #111; border:none; padding:10px; text-align:center;">
         </div>
     </div>
-
     <div id="img-modal" class="modal-overlay" onclick="this.style.display='none'">
         <img id="img-full" style="max-width:95%; max-height:90%;">
     </div>
 
     <script>
-        // --- CONFIG ---
         const peerConfig = {
             config: {
                 iceServers: [
@@ -191,8 +162,8 @@
 
         let peer, myName, roomId, isHost;
         let connections = [], hostConn = null, chatHistory = [];
-        
-        // Init
+        let replyTo = null;
+
         myName = localStorage.getItem('p2p_username') || "";
         document.getElementById('username-input').value = myName;
         updateAvatar();
@@ -202,21 +173,17 @@
             document.getElementById('my-avatar-preview').src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${val}`;
         }
 
-        // --- CORE LOGIC ---
         function startApp(hostMode) {
-            myName = document.getElementById('username-input').value || "Anonim";
+            myName = document.getElementById('username-input').value || "Anon";
             localStorage.setItem('p2p_username', myName);
-            
             roomId = document.getElementById('room-input').value.trim();
-            if(!hostMode && !roomId) return alert("Masukan ID Grup!");
-            if(hostMode && !roomId) roomId = 'GRUP-' + Math.floor(Math.random()*9999);
-
+            if(!hostMode && !roomId) return alert("Input ID!");
+            if(hostMode && !roomId) roomId = 'GROUP-' + Math.floor(Math.random()*9999);
             isHost = hostMode;
             initPeer();
         }
 
         function initPeer() {
-            // Load Chat Lama
             chatHistory = JSON.parse(localStorage.getItem('p2p_chat_' + roomId)) || [];
             document.getElementById('setup-panel').style.display = 'none';
             document.getElementById('main-header').style.display = 'flex';
@@ -224,59 +191,32 @@
             document.getElementById('chat-area').style.display = 'flex';
             document.getElementById('chat-title').innerText = roomId;
             document.getElementById('group-avatar').src = `https://api.dicebear.com/9.x/initials/svg?seed=${roomId}`;
-            
             renderHistory();
-
-            updateStatus("Menghubungkan...");
+            updateStatus("/ CONNECTING");
             
-            // Peer Init
-            if(isHost) {
-                peer = new Peer(roomId, peerConfig);
-            } else {
-                peer = new Peer(peerConfig);
-            }
+            peer = isHost ? new Peer(roomId, peerConfig) : new Peer(peerConfig);
 
             peer.on('open', (id) => {
-                if(isHost) {
-                    updateStatus("Anda adalah HOST 🟢");
-                } else {
-                    connectToHost();
-                }
+                if(isHost) updateStatus("/ HOST ACTIVE");
+                else connectToHost();
             });
 
             peer.on('connection', (conn) => {
                 connections.push(conn);
                 setupConn(conn);
-                updateStatus(`${connections.length} Online`);
+                updateStatus("/ " + connections.length + " ONLINE");
             });
 
             peer.on('error', (err) => {
-                // Error handling biar ga panik
-                if(err.type === 'unavailable-id') {
-                    alert("ID Grup sedang dipakai! Coba join sebagai member.");
-                    location.reload();
-                } else {
-                    updateStatus("Terputus 🔴");
-                    showReconnectBtn();
-                }
+                updateStatus("/ DISCONNECTED");
+                showReconnectBtn();
             });
         }
 
-        // --- RECONNECT LOGIC (SOLUSI NO. 3) ---
         function connectToHost() {
-            updateStatus("Mencari Host...");
+            updateStatus("/ SEARCHING HOST");
             if(hostConn) hostConn.close();
-            
             hostConn = peer.connect(roomId, { metadata: { name: myName } });
-            
-            // Timeout check kalau host mati
-            setTimeout(() => {
-                if(!hostConn.open) {
-                    updateStatus("Host Offline 🔴");
-                    showReconnectBtn();
-                }
-            }, 5000);
-
             setupConn(hostConn);
         }
 
@@ -292,11 +232,10 @@
 
         function setupConn(conn) {
             conn.on('open', () => {
-                updateStatus("Terhubung ✅");
+                updateStatus("/ CONNECTED");
                 document.getElementById('reconnect-btn').style.display = 'none';
                 document.getElementById('connection-status').style.display = 'block';
-                
-                if(!isHost) conn.send({ type: 'sys', text: `${myName} bergabung` });
+                if(!isHost) conn.send({ type: 'sys', text: myName + " joined" });
             });
             conn.on('data', (data) => {
                 if(isHost) {
@@ -308,8 +247,8 @@
             });
             conn.on('close', () => {
                 connections = connections.filter(c => c !== conn);
-                updateStatus(isHost ? `${connections.length} Online` : "Terputus 🔴");
-                if(!isHost) showReconnectBtn(); // Munculin tombol reconnect
+                updateStatus(isHost ? "/ " + connections.length + " ONLINE" : "/ DISCONNECTED");
+                if(!isHost) showReconnectBtn();
             });
         }
 
@@ -322,42 +261,36 @@
             document.getElementById('connection-status').style.display = 'block';
         }
 
-        // --- MESSAGING ---
         function sendChat() {
             const txt = document.getElementById('msg-input').value;
             if(!txt) return;
-            const data = { type: 'text', text: txt, sender: myName, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
+            const data = { 
+                id: Date.now(), 
+                type: 'text', text: txt, sender: myName, 
+                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+                replyTo: replyTo 
+            };
             processSend(data);
             document.getElementById('msg-input').value = "";
+            cancelReply();
         }
 
-        // --- FILE UPLOAD FIX (SOLUSI NO. 2) ---
         function handleFileSelect() {
             const file = document.getElementById('file-input').files[0];
-            if(!file) return;
-            
-            // Limit 5MB biar ga crash
-            if(file.size > 5 * 1024 * 1024) return alert("File terlalu besar! Max 5MB.");
-
-            // Tampilkan Loading Overlay
+            if(!file || file.size > 5 * 1024 * 1024) return alert("Max 5MB!");
             document.getElementById('upload-progress').style.display = 'flex';
-            document.getElementById('upload-text').innerText = "Memproses: " + file.name;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = {
+                    id: Date.now(),
                     type: file.type.startsWith('image/') ? 'image' : 'file',
-                    content: e.target.result,
-                    fileName: file.name,
-                    sender: myName,
-                    time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+                    content: e.target.result, fileName: file.name, sender: myName,
+                    time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+                    replyTo: replyTo
                 };
-                
-                // Kasih jeda dikit biar loading keliatan
-                setTimeout(() => {
-                    processSend(data);
-                    document.getElementById('upload-progress').style.display = 'none'; // Sembunyiin loading
-                }, 500);
+                processSend(data);
+                document.getElementById('upload-progress').style.display = 'none';
+                cancelReply();
             };
             reader.readAsDataURL(file);
         }
@@ -387,21 +320,53 @@
             
             if(data.type === 'sys') {
                 div.className = "msg-row sys";
-                div.innerHTML = `<div class="msg-bubble">${data.text}</div>`;
+                div.innerHTML = `<div class="msg-bubble">/ ${data.text}</div>`;
             } else {
                 let content = `<span>${data.text}</span>`;
                 if(data.type === 'image') content = `<img src="${data.content}" class="chat-img" onclick="viewImage(this.src)">`;
-                if(data.type === 'file') content = `<a href="${data.content}" download="${data.fileName}" class="chat-file"><i class="fas fa-file"></i> ${data.fileName}</a>`;
+                if(data.type === 'file') content = `<a href="${data.content}" download="${data.fileName}" class="chat-file"><i class="fas fa-file"></i> / ${data.fileName}</a>`;
+
+                let replyPreview = "";
+                if(data.replyTo) {
+                    replyPreview = `
+                    <div style="background:rgba(0,0,0,0.1); border-left:3px solid var(--accent); padding:4px 6px; margin-bottom:5px; border-radius:4px; font-size:0.8rem;">
+                        <div style="color:var(--accent); font-weight:bold; font-size:0.7rem;">/ ${data.replyTo.sender}</div>
+                        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            ${data.replyTo.type==='image' ? '/ IMAGE' : (data.replyTo.type==='file' ? '/ FILE' : data.replyTo.text)}
+                        </div>
+                    </div>`;
+                }
 
                 div.innerHTML = `
                     <div class="msg-bubble">
-                        <span class="sender-name">${isMe ? '' : data.sender}</span>
+                        ${replyPreview}
+                        <span class="sender-name">${isMe ? '' : '/ ' + data.sender}</span>
                         ${content}
-                        <span class="timestamp">${data.time} ${isMe ? '<i class="fas fa-check"></i>' : ''}</span>
+                        <div class="meta-row">
+                            <span class="timestamp">${data.time}</span>
+                            <i class="fas fa-reply reply-icon" onclick="initReply(${data.id})"></i>
+                            ${isMe ? '<i class="fas fa-check"></i>' : ''}
+                        </div>
                     </div>`;
             }
             document.getElementById('chat-area').appendChild(div);
             scrollToBottom();
+        }
+
+        function initReply(msgId) {
+            const msg = chatHistory.find(m => m.id === msgId);
+            if(!msg) return;
+            replyTo = msg;
+            document.getElementById('reply-bar').style.display = 'flex';
+            document.getElementById('reply-target-name').innerText = "/ REPLY TO " + msg.sender;
+            document.getElementById('reply-target-text').innerText = 
+                msg.type === 'image' ? '/ IMAGE' : (msg.type === 'file' ? '/ FILE' : msg.text);
+            document.getElementById('msg-input').focus();
+        }
+
+        function cancelReply() {
+            replyTo = null;
+            document.getElementById('reply-bar').style.display = 'none';
         }
 
         function scrollToBottom() {
@@ -409,7 +374,6 @@
             setTimeout(() => area.scrollTop = area.scrollHeight, 100);
         }
 
-        // --- UTILS ---
         function toggleTheme() {
             const body = document.body;
             body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
@@ -418,7 +382,7 @@
             document.getElementById('invite-id').value = roomId; 
             document.getElementById('invite-modal').style.display = 'flex'; 
         }
-        function copyId(el) { el.select(); document.execCommand("copy"); alert("ID Disalin!"); }
+        function copyId(el) { el.select(); document.execCommand("copy"); alert("ID Copied!"); }
         function viewImage(src) { 
             document.getElementById('img-full').src = src; 
             document.getElementById('img-modal').style.display = 'flex'; 
