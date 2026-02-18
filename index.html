@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-    <title>Chat P2P - Clean Edition</title>
+    <title>Chat P2P - Clean Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -44,13 +44,13 @@
         .header-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
         .avatar-header { width: 40px; height: 40px; border-radius: 50%; }
         .chat-info h3 { margin: 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .status-text { font-size: 0.75rem; color: var(--text-secondary); }
+        .status-text { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
         .reconnect-btn { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 0.7rem; cursor: pointer; display: none; }
 
         #setup-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100dvh; background: var(--bg-color); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
-        .card { background: var(--header-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; border: 1px solid var(--border); }
+        .card { background: var(--header-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; }
         input { width: 100%; padding: 12px; margin: 10px 0; background: var(--input-bg); border: none; color: var(--text-primary); border-radius: 8px; box-sizing: border-box; text-align: center; font-size: 1rem; }
-        .btn { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 25px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+        .btn { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 25px; font-weight: bold; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-green { background: var(--accent); color: white; }
         .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
 
@@ -64,7 +64,6 @@
         .sys { justify-content: center; margin: 10px 0; } .sys .msg-bubble { background: var(--input-bg); color: var(--text-secondary); font-size: 0.75rem; border-radius: 20px; text-align: center; }
         
         .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: #fca103; }
-        
         .meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; }
         .timestamp { font-size: 0.65rem; color: var(--text-secondary); }
         .reply-icon { font-size: 0.7rem; color: var(--text-secondary); cursor: pointer; padding: 2px 5px; }
@@ -75,7 +74,6 @@
         .reply-bar { background: var(--input-bg); padding: 8px 15px; border-left: 5px solid var(--accent); display: none; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; }
         .reply-content { flex: 1; font-size: 0.8rem; }
         .reply-sender { color: var(--accent); font-weight: bold; font-size: 0.75rem; }
-        .reply-text { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
 
         .footer-container { background: var(--header-bg); padding: 5px 10px; flex-shrink: 0; z-index: 50; padding-bottom: 10px; }
         .footer { display: flex; align-items: center; gap: 8px; }
@@ -83,25 +81,23 @@
         .icon-btn { color: var(--text-secondary); font-size: 1.4rem; padding: 5px; cursor: pointer; }
         .send-btn { background: var(--accent); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; justify-content: center; align-items: center; }
-        .modal-box { background: var(--header-bg); padding: 20px; border-radius: 10px; width: 80%; max-width: 300px; text-align: center; }
-        #upload-progress { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 5000; flex-direction: column; justify-content: center; align-items: center; color: white; }
         .spinner { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #upload-progress { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 5000; flex-direction: column; justify-content: center; align-items: center; color: white; }
     </style>
 </head>
 <body data-theme="dark">
 
-    <div id="upload-progress"><div class="spinner"></div><h3 id="upload-text">Processing...</h3></div>
+    <div id="upload-progress"><div class="spinner"></div><h3>Processing</h3></div>
 
     <div id="setup-panel">
         <div class="card">
-            <h2 style="color:var(--accent); margin-bottom: 10px;">P2P Chat</h2>
+            <h2 style="color:var(--accent); margin-bottom: 10px;"><i class="fab fa-whatsapp"></i> P2P Chat</h2>
             <img id="my-avatar-preview" src="" style="width:70px; height:70px; border-radius:50%; margin-bottom: 10px; border: 1px solid var(--accent);">
-            <input type="text" id="username-input" placeholder="Username..." oninput="updateAvatar()">
-            <input type="text" id="room-input" placeholder="Group ID...">
-            <button onclick="startApp(true)" class="btn btn-green">Create / Host</button>
-            <button onclick="startApp(false)" class="btn btn-outline">Join Group</button>
+            <input type="text" id="username-input" placeholder="Username" oninput="updateAvatar()">
+            <input type="text" id="room-input" placeholder="Group ID">
+            <button onclick="startApp(true)" class="btn btn-green"><i class="fas fa-plus"></i> Host</button>
+            <button onclick="startApp(false)" class="btn btn-outline"><i class="fas fa-sign-in-alt"></i> Join</button>
         </div>
     </div>
 
@@ -111,8 +107,8 @@
             <img id="group-avatar" class="avatar-header" src="">
             <div class="chat-info" style="margin-left: 10px;">
                 <h3 id="chat-title">Group</h3>
-                <span id="connection-status" class="status-text">Waiting...</span>
-                <button id="reconnect-btn" class="reconnect-btn" onclick="retryConnection()">/ RECONNECT</button>
+                <span id="connection-status" class="status-text">Waiting</span>
+                <button id="reconnect-btn" class="reconnect-btn" onclick="retryConnection()">RECONNECT</button>
             </div>
         </div>
         <div>
@@ -127,7 +123,7 @@
         <div id="reply-bar" class="reply-bar">
             <div class="reply-content">
                 <div id="reply-target-name" class="reply-sender"></div>
-                <div id="reply-target-text" class="reply-text"></div>
+                <div id="reply-target-text" style="color:var(--text-secondary); font-size:0.8rem;"></div>
             </div>
             <i class="fas fa-times" onclick="cancelReply()" style="padding:10px; color:var(--text-secondary); cursor:pointer;"></i>
         </div>
@@ -135,19 +131,9 @@
         <div class="footer">
             <i class="fas fa-plus icon-btn" onclick="document.getElementById('file-input').click()"></i>
             <input type="file" id="file-input" style="display:none" onchange="handleFileSelect()">
-            <input type="text" id="msg-input" class="input-box" placeholder="Type message..." onkeypress="if(event.key==='Enter') sendChat()">
+            <input type="text" id="msg-input" class="input-box" placeholder="Message" onkeypress="if(event.key==='Enter') sendChat()">
             <div class="send-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></div>
         </div>
-    </div>
-
-    <div id="invite-modal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
-        <div class="modal-box">
-            <h3 style="color:var(--accent)">GROUP ID</h3>
-            <input type="text" id="invite-id" readonly onclick="copyId(this)" style="width:100%; font-weight:bold; color:var(--accent); cursor:pointer; background: #111; border:none; padding:10px; text-align:center;">
-        </div>
-    </div>
-    <div id="img-modal" class="modal-overlay" onclick="this.style.display='none'">
-        <img id="img-full" style="max-width:95%; max-height:90%;">
     </div>
 
     <script>
@@ -177,7 +163,7 @@
             myName = document.getElementById('username-input').value || "Anon";
             localStorage.setItem('p2p_username', myName);
             roomId = document.getElementById('room-input').value.trim();
-            if(!hostMode && !roomId) return alert("Input ID!");
+            if(!hostMode && !roomId) return alert("Input ID");
             if(hostMode && !roomId) roomId = 'GROUP-' + Math.floor(Math.random()*9999);
             isHost = hostMode;
             initPeer();
@@ -192,29 +178,29 @@
             document.getElementById('chat-title').innerText = roomId;
             document.getElementById('group-avatar').src = `https://api.dicebear.com/9.x/initials/svg?seed=${roomId}`;
             renderHistory();
-            updateStatus("/ CONNECTING");
+            updateStatus("CONNECTING");
             
             peer = isHost ? new Peer(roomId, peerConfig) : new Peer(peerConfig);
 
             peer.on('open', (id) => {
-                if(isHost) updateStatus("/ HOST ACTIVE");
+                if(isHost) updateStatus("HOST ACTIVE");
                 else connectToHost();
             });
 
             peer.on('connection', (conn) => {
                 connections.push(conn);
                 setupConn(conn);
-                updateStatus("/ " + connections.length + " ONLINE");
+                updateStatus(connections.length + " ONLINE");
             });
 
-            peer.on('error', (err) => {
-                updateStatus("/ DISCONNECTED");
+            peer.on('error', () => {
+                updateStatus("DISCONNECTED");
                 showReconnectBtn();
             });
         }
 
         function connectToHost() {
-            updateStatus("/ SEARCHING HOST");
+            updateStatus("SEARCHING");
             if(hostConn) hostConn.close();
             hostConn = peer.connect(roomId, { metadata: { name: myName } });
             setupConn(hostConn);
@@ -232,7 +218,7 @@
 
         function setupConn(conn) {
             conn.on('open', () => {
-                updateStatus("/ CONNECTED");
+                updateStatus("CONNECTED");
                 document.getElementById('reconnect-btn').style.display = 'none';
                 document.getElementById('connection-status').style.display = 'block';
                 if(!isHost) conn.send({ type: 'sys', text: myName + " joined" });
@@ -247,7 +233,7 @@
             });
             conn.on('close', () => {
                 connections = connections.filter(c => c !== conn);
-                updateStatus(isHost ? "/ " + connections.length + " ONLINE" : "/ DISCONNECTED");
+                updateStatus(isHost ? connections.length + " ONLINE" : "DISCONNECTED");
                 if(!isHost) showReconnectBtn();
             });
         }
@@ -277,7 +263,7 @@
 
         function handleFileSelect() {
             const file = document.getElementById('file-input').files[0];
-            if(!file || file.size > 5 * 1024 * 1024) return alert("Max 5MB!");
+            if(!file || file.size > 5 * 1024 * 1024) return alert("Max 5MB");
             document.getElementById('upload-progress').style.display = 'flex';
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -320,19 +306,19 @@
             
             if(data.type === 'sys') {
                 div.className = "msg-row sys";
-                div.innerHTML = `<div class="msg-bubble">/ ${data.text}</div>`;
+                div.innerHTML = `<div class="msg-bubble">${data.text}</div>`;
             } else {
                 let content = `<span>${data.text}</span>`;
                 if(data.type === 'image') content = `<img src="${data.content}" class="chat-img" onclick="viewImage(this.src)">`;
-                if(data.type === 'file') content = `<a href="${data.content}" download="${data.fileName}" class="chat-file"><i class="fas fa-file"></i> / ${data.fileName}</a>`;
+                if(data.type === 'file') content = `<a href="${data.content}" download="${data.fileName}" class="chat-file"><i class="fas fa-file"></i> ${data.fileName}</a>`;
 
                 let replyPreview = "";
                 if(data.replyTo) {
                     replyPreview = `
                     <div style="background:rgba(0,0,0,0.1); border-left:3px solid var(--accent); padding:4px 6px; margin-bottom:5px; border-radius:4px; font-size:0.8rem;">
-                        <div style="color:var(--accent); font-weight:bold; font-size:0.7rem;">/ ${data.replyTo.sender}</div>
+                        <div style="color:var(--accent); font-weight:bold; font-size:0.75rem;">${data.replyTo.sender}</div>
                         <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            ${data.replyTo.type==='image' ? '/ IMAGE' : (data.replyTo.type==='file' ? '/ FILE' : data.replyTo.text)}
+                            ${data.replyTo.type==='image' ? 'IMAGE' : (data.replyTo.type==='file' ? 'FILE' : data.replyTo.text)}
                         </div>
                     </div>`;
                 }
@@ -340,7 +326,7 @@
                 div.innerHTML = `
                     <div class="msg-bubble">
                         ${replyPreview}
-                        <span class="sender-name">${isMe ? '' : '/ ' + data.sender}</span>
+                        <span class="sender-name">${isMe ? '' : data.sender}</span>
                         ${content}
                         <div class="meta-row">
                             <span class="timestamp">${data.time}</span>
@@ -358,9 +344,9 @@
             if(!msg) return;
             replyTo = msg;
             document.getElementById('reply-bar').style.display = 'flex';
-            document.getElementById('reply-target-name').innerText = "/ REPLY TO " + msg.sender;
+            document.getElementById('reply-target-name').innerText = "REPLY TO " + msg.sender;
             document.getElementById('reply-target-text').innerText = 
-                msg.type === 'image' ? '/ IMAGE' : (msg.type === 'file' ? '/ FILE' : msg.text);
+                msg.type === 'image' ? 'IMAGE' : (msg.type === 'file' ? 'FILE' : msg.text);
             document.getElementById('msg-input').focus();
         }
 
@@ -378,14 +364,21 @@
             const body = document.body;
             body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
         }
+
         function showInvite() { 
-            document.getElementById('invite-id').value = roomId; 
-            document.getElementById('invite-modal').style.display = 'flex'; 
+            const inviteId = document.getElementById('room-input').value || roomId;
+            const input = document.createElement('input');
+            input.value = inviteId;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert("Group ID Copied: " + inviteId);
         }
-        function copyId(el) { el.select(); document.execCommand("copy"); alert("ID Copied!"); }
+
         function viewImage(src) { 
-            document.getElementById('img-full').src = src; 
-            document.getElementById('img-modal').style.display = 'flex'; 
+            const w = window.open("");
+            w.document.write(`<img src="${src}" style="width:100%">`);
         }
     </script>
 </body>
