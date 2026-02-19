@@ -129,18 +129,6 @@
             background: var(--input-bg); color: var(--text-secondary); 
             font-size: 0.75rem; border-radius: 20px; text-align: center; padding: 6px 14px;
         }
-
-        /* Date Separator - like WhatsApp */
-        .date-separator {
-            display: flex; align-items: center; justify-content: center;
-            margin: 12px 0 8px 0; width: 100%;
-        }
-        .date-separator-label {
-            background: var(--input-bg); color: var(--text-secondary);
-            font-size: 0.72rem; font-weight: 600; border-radius: 10px;
-            padding: 4px 12px; letter-spacing: 0.3px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-        }
         
         .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: var(--accent-light); }
         .meta-row { 
@@ -353,10 +341,16 @@
         .context-menu-item:last-child { border-radius: 0 0 10px 10px; }
         .context-menu-item i { width: 20px; }
 
-        /* Typing Indicator */
-        .typing-indicator { 
-            display: none; padding: 8px 15px; font-size: 0.85rem; 
-            color: var(--text-secondary); font-style: italic; 
+        /* Date Separator (like WhatsApp) */
+        .date-separator {
+            display: flex; align-items: center; justify-content: center;
+            margin: 14px 0 6px 0; width: 100%;
+        }
+        .date-separator-label {
+            background: var(--input-bg); color: var(--text-secondary);
+            font-size: 0.72rem; font-weight: 600; border-radius: 10px;
+            padding: 4px 14px; letter-spacing: 0.3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
 
         /* Pinned Messages */
@@ -543,10 +537,6 @@
     </div>
 
     <!-- Typing Indicator -->
-    <div class="typing-indicator" id="typing-indicator">
-        <span id="typing-user"></span> is typing...
-    </div>
-
     <!-- Footer -->
     <div class="footer-container" id="main-footer" style="display:none;">
         <div id="reply-bar" class="reply-bar">
@@ -581,7 +571,7 @@
             <input type="file" id="file-input" style="display:none" onchange="handleFileSelect()" multiple>
             <input type="text" id="msg-input" class="input-box" placeholder="Type a message..." 
                    onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChat(); }" 
-                   oninput="handleTyping()">
+                   oninput="toggleSendButton()">
             <i class="fas fa-microphone icon-btn" id="voice-btn" onclick="startVoiceRecording()"></i>
             <button class="send-btn" id="send-btn" onclick="sendChat()" style="display: none;">
                 <i class="fas fa-paper-plane"></i>
@@ -763,9 +753,6 @@
         
         // Voice Recording
         let mediaRecorder, audioChunks = [], recordingInterval, recordingStartTime;
-        
-        // Typing
-        let typingTimeout;
         
         // Settings
         let settings = {
@@ -994,110 +981,70 @@
             handleConnection(hostConnection);
         }
 
-        let autoReconnectTimer = null;
-        let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 5;
-
-        function tryAutoReconnect() {
-            if (isHost) return;
-            if (autoReconnectTimer) return; // already trying
-            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                showReconnectButton();
-                showToast('❌ Gagal reconnect. Tekan tombol Reconnect.');
-                return;
-            }
-            const delay = Math.min(2000 * Math.pow(2, reconnectAttempts), 30000);
-            reconnectAttempts++;
-            showToast(`🔄 Mencoba reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-            autoReconnectTimer = setTimeout(() => {
-                autoReconnectTimer = null;
-                if (!hostConnection || !hostConnection.open) {
-                    try {
-                        hostConnection = peer.connect(roomId, { reliable: true });
-                        handleConnection(hostConnection);
-                    } catch(e) {
-                        console.error('Auto-reconnect error:', e);
-                        tryAutoReconnect();
-                    }
-                }
-            }, delay);
-        }
-
         function handleConnection(conn) {
             console.log('Setting up connection with:', conn.peer);
+            
+            // Always store/update connection
             connections.set(conn.peer, conn);
             
             if (!isHost && conn.peer === roomId) {
                 hostConnection = conn;
-                console.log('Host connection established');
             }
             
             conn.on('open', () => {
                 console.log('Connection opened with:', conn.peer);
+                // Re-store on open to ensure it's registered
+                connections.set(conn.peer, conn);
+                
                 hideLoading();
                 updateConnectionStatus('Connected');
                 updateConnectionBadge(true);
+                document.getElementById('reconnect-btn').style.display = 'none';
                 
-                // Reset reconnect state
-                reconnectAttempts = 0;
-                if (autoReconnectTimer) {
-                    clearTimeout(autoReconnectTimer);
-                    autoReconnectTimer = null;
-                }
-                
-                const joinData = {
+                // Send join info
+                conn.send({
                     type: 'join',
                     peerId: myPeerId,
                     name: myName,
                     avatar: getAvatar(myName)
-                };
-                conn.send(joinData);
+                });
                 
+                // Member requests history after join
                 if (!isHost) {
                     setTimeout(() => {
                         if (conn.open) {
                             conn.send({ type: 'request_history' });
                         }
                     }, 500);
-                    // Flush any queued messages after history sync
-                    setTimeout(() => {
-                        flushMessageQueue();
-                    }, 1200);
                 }
             });
             
             conn.on('data', (data) => {
-                console.log('Received data:', data.type, 'from:', conn.peer);
+                console.log('Received:', data.type, 'from:', conn.peer);
                 handleIncomingData(data, conn);
             });
             
             conn.on('close', () => {
-                console.log('Connection closed with:', conn.peer);
+                console.log('Connection closed:', conn.peer);
                 connections.delete(conn.peer);
                 members.delete(conn.peer);
                 updateMemberCount();
                 
                 if (!isHost && conn.peer === roomId) {
                     hostConnection = null;
-                    updateConnectionStatus('Disconnected from host');
-                    updateConnectionBadge(false);
-                    tryAutoReconnect();
-                }
-                
-                if (connections.size === 0 && !isHost) {
                     updateConnectionStatus('Disconnected');
                     updateConnectionBadge(false);
+                    showReconnectButton();
                 }
             });
             
             conn.on('error', (err) => {
-                console.error('Connection error with', conn.peer, ':', err);
+                console.error('Conn error with', conn.peer, ':', err);
+                if (!isHost) showReconnectButton();
             });
         }
 
         function handleIncomingData(data, conn) {
-            console.log('Processing data:', data.type);
-            
             switch(data.type) {
                 case 'join':
                     members.set(data.peerId, { 
@@ -1109,6 +1056,7 @@
                     updateMemberCount();
                     
                     if (isHost) {
+                        // Send current history to the new member
                         setTimeout(() => {
                             if (conn.open) {
                                 conn.send({
@@ -1117,8 +1065,9 @@
                                     members: Array.from(members.entries())
                                 });
                             }
-                        }, 300);
+                        }, 200);
                         
+                        // Notify all others about new member
                         broadcast({
                             type: 'member_update',
                             members: Array.from(members.entries())
@@ -1133,26 +1082,19 @@
                     break;
                     
                 case 'request_history':
-                    if (isHost) {
-                        setTimeout(() => {
-                            if (conn.open) {
-                                conn.send({
-                                    type: 'history',
-                                    history: chatHistory,
-                                    members: Array.from(members.entries())
-                                });
-                            }
-                        }, 300);
+                    if (isHost && conn.open) {
+                        conn.send({
+                            type: 'history',
+                            history: chatHistory,
+                            members: Array.from(members.entries())
+                        });
                     }
                     break;
                     
                 case 'history':
-                    console.log('Received history:', data.history.length, 'messages');
                     chatHistory = data.history;
                     if (data.members) {
-                        data.members.forEach(([id, member]) => {
-                            members.set(id, member);
-                        });
+                        data.members.forEach(([id, member]) => members.set(id, member));
                     }
                     saveChatHistory();
                     renderHistory();
@@ -1160,9 +1102,7 @@
                     break;
                     
                 case 'member_update':
-                    data.members.forEach(([id, member]) => {
-                        members.set(id, member);
-                    });
+                    data.members.forEach(([id, member]) => members.set(id, member));
                     updateMemberCount();
                     break;
                     
@@ -1172,6 +1112,7 @@
                 case 'voice':
                 case 'location':
                     receiveMessage(data);
+                    // If host receives from a member, relay to all OTHER members
                     if (isHost) {
                         broadcast(data, conn.peer);
                     }
@@ -1194,15 +1135,6 @@
                     
                 case 'pin':
                     togglePinMessage(data.messageId, data.pinned);
-                    if (isHost) broadcast(data, conn.peer);
-                    break;
-                    
-                case 'typing':
-                    showTypingIndicator(data.sender);
-                    break;
-                    
-                case 'stop_typing':
-                    removeTypingUser(data.sender);
                     if (isHost) broadcast(data, conn.peer);
                     break;
                     
@@ -1240,6 +1172,11 @@
             const input = document.getElementById('msg-input');
             const txt = input.value.trim();
             if (!txt) return;
+            
+            if (!isHost && !hostConnection) {
+                alert('Not connected to room. Please reconnect.');
+                return;
+            }
             
             let messageText = txt;
             if (encryptionKey) {
@@ -1359,107 +1296,40 @@
             cancelReply();
         }
 
-        // Message queue for retry when connection is temporarily lost
-        let messageQueue = [];
-        let isRetrying = false;
-
         function processSend(data) {
-            // Save to local history with originalText
+            // Save & render for sender
             saveAndRender(data, true);
             
-            // Create network data copy
+            // Network copy (strip originalText if encrypted)
             const networkData = { ...data };
-            
-            // Remove originalText from network data if encrypted
             if (encryptionKey && networkData.type === 'text') {
                 networkData.originalText = null;
             }
             
-            // Try to send, queue if not connected
             if (isHost) {
+                // Host: broadcast to ALL connected members
                 broadcast(networkData);
-            } else if (hostConnection && hostConnection.open) {
-                console.log('Sending message to host');
-                try {
-                    hostConnection.send(networkData);
-                } catch(e) {
-                    console.error('Send error, queuing message:', e);
-                    messageQueue.push(networkData);
-                    updateMsgStatus(data.id, 'pending');
-                    showToast('⏳ Pesan akan terkirim saat tersambung kembali');
-                }
             } else {
-                // Not connected — queue the message instead of deleting it
-                console.warn('Not connected, queuing message');
-                messageQueue.push(networkData);
-                updateMsgStatus(data.id, 'pending');
-                showToast('⏳ Pesan antri, mencoba tersambung...');
-                tryAutoReconnect();
-                return;
+                // Member: send to host
+                if (hostConnection && hostConnection.open) {
+                    try {
+                        hostConnection.send(networkData);
+                    } catch(e) {
+                        console.error('Send failed:', e);
+                        showConnectionError();
+                    }
+                } else {
+                    showConnectionError();
+                }
             }
             
             playNotificationSound();
         }
 
-        function updateMsgStatus(msgId, status) {
-            const msg = chatHistory.find(m => m.id === msgId);
-            if (msg) msg.status = status;
-            const el = document.querySelector(`[data-message-id="${msgId}"] .msg-status`);
-            if (el) {
-                if (status === 'pending') {
-                    el.className = 'fas fa-clock msg-status';
-                    el.style.color = 'rgba(255,200,0,0.8)';
-                } else if (status === 'sent') {
-                    el.className = 'fas fa-check msg-status';
-                    el.style.color = '';
-                }
-            }
-        }
-
-        function flushMessageQueue() {
-            if (messageQueue.length === 0) return;
-            console.log('Flushing', messageQueue.length, 'queued messages');
-            const toSend = [...messageQueue];
-            messageQueue = [];
-            toSend.forEach(networkData => {
-                try {
-                    if (isHost) {
-                        broadcast(networkData);
-                    } else if (hostConnection && hostConnection.open) {
-                        hostConnection.send(networkData);
-                    } else {
-                        messageQueue.push(networkData); // push back if still not connected
-                        return;
-                    }
-                    updateMsgStatus(networkData.id, 'sent');
-                } catch(e) {
-                    console.error('Flush send error:', e);
-                    messageQueue.push(networkData);
-                }
-            });
-            if (messageQueue.length === 0) {
-                showToast('✅ Semua pesan terkirim!');
-            }
-        }
-
-        function showToast(msg) {
-            let toast = document.getElementById('toast-msg');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'toast-msg';
-                toast.style.cssText = `
-                    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-                    background: rgba(30,42,58,0.95); color: #e8eef5; padding: 8px 16px;
-                    border-radius: 20px; font-size: 0.8rem; z-index: 9999;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: none;
-                    transition: opacity 0.3s;
-                `;
-                document.body.appendChild(toast);
-            }
-            toast.textContent = msg;
-            toast.style.opacity = '1';
-            clearTimeout(toast._timer);
-            toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+        function showConnectionError() {
+            const status = document.getElementById('status-text');
+            if (status) status.textContent = 'DISCONNECTED';
+            document.getElementById('reconnect-btn').style.display = 'inline-block';
         }
 
         function receiveMessage(data) {
@@ -1485,16 +1355,52 @@
             }
         }
 
+        function renderMessage_OLD_REMOVED() { /* removed */ }
+
+        function formatDateLabel(timestamp) {
+            if (!timestamp) return null;
+            const msgDate = new Date(timestamp);
+            const today = new Date();
+            const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+            const sameDay = (a, b) => a.getDate()===b.getDate() && a.getMonth()===b.getMonth() && a.getFullYear()===b.getFullYear();
+            if (sameDay(msgDate, today)) return 'Hari Ini';
+            if (sameDay(msgDate, yesterday)) return 'Kemarin';
+            const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+            const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            const diffDays = Math.floor((today - msgDate) / 86400000);
+            if (diffDays < 7) return days[msgDate.getDay()];
+            return `${msgDate.getDate()} ${months[msgDate.getMonth()]} ${msgDate.getFullYear()}`;
+        }
+
+        function renderHistory() {
+            const chatArea = document.getElementById('chat-area');
+            chatArea.innerHTML = '';
+            let lastLabel = null;
+            chatHistory.forEach(msg => {
+                if (msg.type !== 'sys' && msg.timestamp) {
+                    const label = formatDateLabel(msg.timestamp);
+                    if (label && label !== lastLabel) {
+                        lastLabel = label;
+                        const sep = document.createElement('div');
+                        sep.className = 'date-separator';
+                        sep.innerHTML = `<span class="date-separator-label">${label}</span>`;
+                        chatArea.appendChild(sep);
+                    }
+                }
+                renderMessage(msg);
+            });
+            scrollToBottom();
+        }
+
         function renderMessage(data) {
             const chatArea = document.getElementById('chat-area');
 
-            // Inject date separator if needed (for real-time messages)
+            // Inject date separator for real-time messages
             if (data.type !== 'sys' && data.timestamp) {
                 const label = formatDateLabel(data.timestamp);
                 if (label) {
-                    // Check if last separator matches
-                    const separators = chatArea.querySelectorAll('.date-separator-label');
-                    const lastLabel = separators.length ? separators[separators.length - 1].textContent : null;
+                    const allSeps = chatArea.querySelectorAll('.date-separator-label');
+                    const lastLabel = allSeps.length ? allSeps[allSeps.length-1].textContent : null;
                     if (label !== lastLabel) {
                         const sep = document.createElement('div');
                         sep.className = 'date-separator';
@@ -1506,17 +1412,17 @@
 
             const div = document.createElement('div');
             const isMe = data.isMe || data.senderId === myPeerId;
-            
+
             div.className = "msg-row " + (isMe ? "me" : "them");
             div.dataset.messageId = data.id;
-            
+
             if (data.type === 'sys') {
                 div.className = "msg-row sys";
                 div.innerHTML = `<div class="msg-bubble">${data.text}</div>`;
             } else {
                 let content = '';
                 const displayText = data.originalText || data.text;
-                
+
                 switch(data.type) {
                     case 'text':
                         content = `<span>${escapeHtml(displayText)}</span>`;
@@ -1535,7 +1441,7 @@
                                 <i class="${fileIcon}"></i>
                                 <div>
                                     <div>${escapeHtml(data.fileName)}</div>
-                                    <div style="font-size: 0.75rem; opacity: 0.7;">${fileSize}</div>
+                                    <div style="font-size:0.75rem;opacity:0.7;">${fileSize}</div>
                                 </div>
                             </a>`;
                         break;
@@ -1545,9 +1451,7 @@
                                 <button class="voice-play-btn" onclick="playVoice('${data.id}', this)">
                                     <i class="fas fa-play"></i>
                                 </button>
-                                <div class="voice-waveform" id="waveform-${data.id}">
-                                    ${generateWaveform()}
-                                </div>
+                                <div class="voice-waveform" id="waveform-${data.id}">${generateWaveform()}</div>
                                 <span class="voice-duration">${data.duration || '0:00'}</span>
                             </div>
                             <audio id="audio-${data.id}" src="${data.content}" style="display:none;"></audio>`;
@@ -1555,32 +1459,32 @@
                     case 'location':
                         content = `
                             <a href="https://www.google.com/maps?q=${data.lat},${data.lng}" target="_blank" class="chat-file">
-                                <i class="fas fa-map-marker-alt" style="color: var(--accent);"></i>
+                                <i class="fas fa-map-marker-alt" style="color:var(--accent);"></i>
                                 <div>
                                     <div>Location</div>
-                                    <div style="font-size: 0.75rem; opacity: 0.7;">${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}</div>
+                                    <div style="font-size:0.75rem;opacity:0.7;">${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}</div>
                                 </div>
                             </a>`;
                         break;
                 }
-                
+
                 let replyPreview = "";
                 if (data.replyTo) {
                     const replyText = data.replyTo.originalText || data.replyTo.text || '';
                     replyPreview = `
                         <div class="reply-preview" onclick="scrollToMessage('${data.replyTo.id}')">
-                            <div style="color:var(--accent-light); font-weight:bold; font-size:0.75rem;">${escapeHtml(data.replyTo.sender)}</div>
-                            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity: 0.8;">
-                                ${data.replyTo.type === 'image' ? '📷 Photo' : 
+                            <div style="color:var(--accent-light);font-weight:bold;font-size:0.75rem;">${escapeHtml(data.replyTo.sender)}</div>
+                            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0.8;">
+                                ${data.replyTo.type === 'image' ? '📷 Photo' :
                                   data.replyTo.type === 'video' ? '🎥 Video' :
-                                  data.replyTo.type === 'file' ? '📎 ' + data.replyTo.fileName : 
+                                  data.replyTo.type === 'file' ? '📎 ' + data.replyTo.fileName :
                                   data.replyTo.type === 'voice' ? '🎤 Voice message' :
                                   data.replyTo.type === 'location' ? '📍 Location' :
                                   escapeHtml(replyText)}
                             </div>
                         </div>`;
                 }
-                
+
                 let reactionsHtml = '';
                 if (data.reactions && Object.keys(data.reactions).length > 0) {
                     reactionsHtml = '<div class="reactions-container">';
@@ -1589,28 +1493,20 @@
                         reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
                     });
                     Object.entries(reactionCounts).forEach(([emoji, count]) => {
-                        reactionsHtml += `
-                            <div class="reaction-bubble" onclick="toggleReaction('${data.id}', '${emoji}')">
-                                <span class="reaction-emoji">${emoji}</span>
-                                <span class="reaction-count">${count}</span>
-                            </div>`;
+                        reactionsHtml += `<div class="reaction-bubble" onclick="toggleReaction('${data.id}', '${emoji}')"><span class="reaction-emoji">${emoji}</span><span class="reaction-count">${count}</span></div>`;
                     });
                     reactionsHtml += '</div>';
                 }
-                
+
                 let statusIcon = '';
                 if (isMe) {
-                    if (data.status === 'read') {
-                        statusIcon = '<i class="fas fa-check-double msg-status read"></i>';
-                    } else if (data.status === 'delivered') {
-                        statusIcon = '<i class="fas fa-check-double msg-status"></i>';
-                    } else {
-                        statusIcon = '<i class="fas fa-check msg-status"></i>';
-                    }
+                    if (data.status === 'read') statusIcon = '<i class="fas fa-check-double msg-status read"></i>';
+                    else if (data.status === 'delivered') statusIcon = '<i class="fas fa-check-double msg-status"></i>';
+                    else statusIcon = '<i class="fas fa-check msg-status"></i>';
                 }
-                
+
                 const editedLabel = data.edited ? '<span class="edited-label">edited</span>' : '';
-                
+
                 div.innerHTML = `
                     <div class="msg-bubble" oncontextmenu="showContextMenu(event, '${data.id}'); return false;">
                         ${replyPreview}
@@ -1629,60 +1525,14 @@
                         </div>
                     </div>`;
             }
-            
+
             chatArea.appendChild(div);
             scrollToBottom();
             checkScrollPosition();
         }
 
-        function formatDateLabel(timestamp) {
-            if (!timestamp) return null;
-            const msgDate = new Date(timestamp);
-            const today = new Date();
-            const yesterday = new Date();
-            yesterday.setDate(today.getDate() - 1);
-
-            const sameDay = (a, b) =>
-                a.getDate() === b.getDate() &&
-                a.getMonth() === b.getMonth() &&
-                a.getFullYear() === b.getFullYear();
-
-            if (sameDay(msgDate, today)) return 'Hari Ini';
-            if (sameDay(msgDate, yesterday)) return 'Kemarin';
-
-            const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-            const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-            const diffDays = Math.floor((today - msgDate) / (1000 * 60 * 60 * 24));
-
-            if (diffDays < 7) {
-                return dayNames[msgDate.getDay()];
-            }
-            return `${msgDate.getDate()} ${monthNames[msgDate.getMonth()]} ${msgDate.getFullYear()}`;
-        }
-
-        function renderHistory() {
-            const chatArea = document.getElementById('chat-area');
-            chatArea.innerHTML = '';
-            let lastDateLabel = null;
-            chatHistory.forEach(msg => {
-                if (msg.type !== 'sys' && msg.timestamp) {
-                    const label = formatDateLabel(msg.timestamp);
-                    if (label && label !== lastDateLabel) {
-                        lastDateLabel = label;
-                        const sep = document.createElement('div');
-                        sep.className = 'date-separator';
-                        sep.innerHTML = `<span class="date-separator-label">${label}</span>`;
-                        chatArea.appendChild(sep);
-                    }
-                }
-                renderMessage(msg);
-            });
-            scrollToBottom();
-        }
-
         // Voice Recording
         function startVoiceRecording() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 alert('Voice recording not supported in your browser');
                 return;
             }
@@ -2192,63 +2042,7 @@
             }
         }
 
-        // FIXED: Typing Indicator
-        let typingUsers = new Set();
-        let typingTimers = {};
-
-        function handleTyping() {
-            const input = document.getElementById('msg-input');
-            toggleSendButton();
-            
-            clearTimeout(typingTimeout);
-            
-            const typingData = { type: 'typing', sender: myName };
-            
-            if (isHost) {
-                broadcast(typingData);
-            } else if (hostConnection && hostConnection.open) {
-                hostConnection.send(typingData);
-            }
-            
-            typingTimeout = setTimeout(() => {
-                // Send stop typing signal
-                const stopData = { type: 'stop_typing', sender: myName };
-                if (isHost) {
-                    broadcast(stopData);
-                } else if (hostConnection && hostConnection.open) {
-                    hostConnection.send(stopData);
-                }
-            }, 1500);
-        }
-
-        function showTypingIndicator(userName) {
-            typingUsers.add(userName);
-            const indicator = document.getElementById('typing-indicator');
-            document.getElementById('typing-user').textContent = Array.from(typingUsers).join(', ');
-            indicator.style.display = 'block';
-            
-            // Clear previous timer for this user
-            if (typingTimers[userName]) clearTimeout(typingTimers[userName]);
-            
-            // Auto-hide after 3s as fallback
-            typingTimers[userName] = setTimeout(() => {
-                removeTypingUser(userName);
-            }, 3000);
-        }
-
-        function removeTypingUser(userName) {
-            typingUsers.delete(userName);
-            if (typingTimers[userName]) {
-                clearTimeout(typingTimers[userName]);
-                delete typingTimers[userName];
-            }
-            const indicator = document.getElementById('typing-indicator');
-            if (typingUsers.size === 0) {
-                indicator.style.display = 'none';
-            } else {
-                document.getElementById('typing-user').textContent = Array.from(typingUsers).join(', ');
-            }
-        }
+        // FIXED: Typing Indicator REMOVED
 
         function toggleSendButton() {
             const input = document.getElementById('msg-input');
@@ -2542,22 +2336,6 @@
 
         function retryConnection() {
             document.getElementById('reconnect-btn').style.display = 'none';
-            reconnectAttempts = 0;
-            if (autoReconnectTimer) {
-                clearTimeout(autoReconnectTimer);
-                autoReconnectTimer = null;
-            }
-            
-            if (peer && !peer.destroyed) {
-                try {
-                    hostConnection = peer.connect(roomId, { reliable: true });
-                    handleConnection(hostConnection);
-                    showToast('🔄 Mencoba menyambung kembali...');
-                    return;
-                } catch(e) {
-                    console.error('Quick reconnect failed, reinit peer:', e);
-                }
-            }
             
             if (peer) {
                 peer.destroy();
