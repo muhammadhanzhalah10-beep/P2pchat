@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-    <title>P2P Chat Pro - Fixed</title>
+    <title>DeChat - Secure P2P Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
             --bg-color: #0a1628;
@@ -71,8 +73,8 @@
             width: 100%; max-width: 380px; text-align: center; 
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        .logo { font-size: 3rem; margin-bottom: 10px; }
-        .card h2 { color: var(--accent); margin: 10px 0 20px 0; font-size: 1.5rem; }
+        .logo { font-size: 2.5rem; margin-bottom: 5px; font-weight: bold; color: var(--accent); }
+        .card h2 { color: var(--accent); margin: 5px 0 25px 0; font-size: 1.2rem; font-weight: 400; opacity: 0.8; }
         input, select { 
             width: 100%; padding: 14px; margin: 10px 0; background: #f1f5f9; 
             border: 2px solid #e2e8f0; color: #0f172a; 
@@ -404,20 +406,6 @@
         }
         .them .edited-label { color: var(--text-secondary); }
 
-        /* Connection Quality */
-        .connection-quality { 
-            display: inline-flex; align-items: center; gap: 2px; 
-            margin-left: 8px; 
-        }
-        .signal-bar { 
-            width: 3px; background: var(--text-secondary); 
-            border-radius: 2px; 
-        }
-        .signal-bar.bar1 { height: 5px; }
-        .signal-bar.bar2 { height: 8px; }
-        .signal-bar.bar3 { height: 11px; }
-        .signal-bar.active { background: var(--accent); }
-
         /* Connection Status Badge */
         .connection-badge {
             display: inline-block;
@@ -432,6 +420,22 @@
         @keyframes pulse-badge {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+
+        /* QR Code */
+        #qrcode-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #reader {
+            width: 100%;
+            max-width: 500px;
         }
 
         /* Responsive */
@@ -462,17 +466,20 @@
     <!-- Setup Panel -->
     <div id="setup-panel">
         <div class="card">
-            <div class="logo">💬</div>
-            <h2>P2P Chat Pro</h2>
+            <div class="logo">DeChat</div>
+            <h2>Secure Peer-to-Peer Messaging</h2>
             <img id="my-avatar-preview" src="" style="width:80px; height:80px; border-radius:50%; margin-bottom: 15px; border: 3px solid var(--accent); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
             <input type="text" id="username-input" placeholder="Your Username" oninput="updateAvatar()">
-            <input type="text" id="room-input" placeholder="Room ID (e.g., meeting123)">
-            <input type="password" id="room-password" placeholder="🔒 Password (optional)">
+            <input type="text" id="room-input" placeholder="Room ID">
+            <input type="password" id="room-password" placeholder="Password (optional)">
             <button onclick="startApp(true)" class="btn btn-blue">
                 <i class="fas fa-plus-circle"></i> Create Room
             </button>
             <button onclick="startApp(false)" class="btn btn-outline">
                 <i class="fas fa-sign-in-alt"></i> Join Room
+            </button>
+            <button onclick="openQRScanner()" class="btn btn-outline" style="margin-top: 10px;">
+                <i class="fas fa-qrcode"></i> Scan QR to Join
             </button>
             <p style="margin-top: 20px; font-size: 0.85rem; color: #64748b;">
                 End-to-end encrypted • Peer-to-peer
@@ -612,12 +619,24 @@
                     <i class="fas fa-copy" onclick="copyRoomId()" style="cursor: pointer; color: var(--accent);"></i>
                 </div>
             </div>
+            <div id="qrcode-container"></div>
             <button class="btn btn-blue" onclick="showMembers()">
                 <i class="fas fa-users"></i> View Members (<span id="member-count">0</span>)
             </button>
             <button class="btn btn-outline" onclick="exportChat()" style="margin-top: 10px;">
                 <i class="fas fa-download"></i> Export Chat
             </button>
+        </div>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div class="modal" id="qr-scanner-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Scan QR Code</div>
+                <span class="close-modal" onclick="closeQRScanner()">&times;</span>
+            </div>
+            <div id="reader"></div>
         </div>
     </div>
 
@@ -720,7 +739,7 @@
     <script>
         // Global Variables
         let peer, myPeerId, myName, roomId, roomPassword, isHost = false;
-        let hostConnection = null; // CRITICAL: Store host connection for members
+        let hostConnection = null;
         let connections = new Map();
         let chatHistory = [];
         let replyTo = null;
@@ -728,6 +747,7 @@
         let pinnedMessages = [];
         let members = new Map();
         let encryptionKey = null;
+        let html5QrcodeScanner = null;
         
         // Voice Recording
         let mediaRecorder, audioChunks = [], recordingInterval, recordingStartTime;
@@ -754,7 +774,6 @@
             generateEmojiPicker();
             requestNotificationPermission();
             
-            // Load saved username
             const savedName = localStorage.getItem('p2p_username');
             if (savedName) {
                 document.getElementById('username-input').value = savedName;
@@ -777,6 +796,76 @@
             const name = document.getElementById('username-input').value || 'User';
             const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=200`;
             document.getElementById('my-avatar-preview').src = avatar;
+        }
+
+        // QR Code Functions
+        function generateRoomQR() {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = '';
+            
+            const qrData = JSON.stringify({
+                id: roomId,
+                p: roomPassword || ''
+            });
+            
+            new QRCode(container, {
+                text: qrData,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function openQRScanner() {
+            const modal = document.getElementById('qr-scanner-modal');
+            modal.style.display = 'flex';
+            
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                { 
+                    fps: 10, 
+                    qrbox: {width: 250, height: 250},
+                    rememberLastUsedCamera: true
+                },
+                false
+            );
+            
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
+
+        function closeQRScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(err => console.error('Error clearing scanner:', err));
+                html5QrcodeScanner = null;
+            }
+            document.getElementById('qr-scanner-modal').style.display = 'none';
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            try {
+                const data = JSON.parse(decodedText);
+                
+                if (data.id) {
+                    document.getElementById('room-input').value = data.id;
+                    if (data.p) {
+                        document.getElementById('room-password').value = data.p;
+                    }
+                    
+                    closeQRScanner();
+                    alert('QR Code scanned successfully! Room ID and password have been filled.');
+                } else {
+                    alert('Invalid QR code format');
+                }
+            } catch (e) {
+                console.error('QR parse error:', e);
+                alert('Invalid QR code');
+            }
+        }
+
+        function onScanFailure(error) {
+            // Silent fail
         }
 
         // Encryption
@@ -815,14 +904,6 @@
             }
             
             isHost = host;
-            
-            // Save room info for rejoin
-            localStorage.setItem('p2p_last_room', JSON.stringify({
-                roomId: roomId,
-                isHost: host,
-                hasPassword: !!roomPassword
-            }));
-            
             initPeer();
         }
 
@@ -834,12 +915,25 @@
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
+                        {
+                            urls: "turn:global.relay.metered.ca:80",
+                            username: "0d1e3d79680848ed401e2c37",
+                            credential: "lqk7+TguBu83AWQW"
+                        },
+                        {
+                            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                            username: "0d1e3d79680848ed401e2c37",
+                            credential: "lqk7+TguBu83AWQW"
+                        },
+                        {
+                            urls: "turn:global.relay.metered.ca:443",
+                            username: "0d1e3d79680848ed401e2c37",
+                            credential: "lqk7+TguBu83AWQW"
+                        }
                     ]
                 }
             };
             
-            // Generate unique peer ID
             const peerId = isHost ? roomId : roomId + '-' + Date.now();
             
             peer = new Peer(peerId, config);
@@ -858,6 +952,7 @@
                 }
                 
                 loadChatHistory();
+                loadPinnedMessages();
                 members.set(myPeerId, { name: myName, online: true });
             });
             
@@ -883,7 +978,6 @@
             showLoading('Joining room...');
             console.log('Connecting to host:', roomId);
             
-            // CRITICAL FIX: Store host connection properly
             hostConnection = peer.connect(roomId, { reliable: true });
             handleConnection(hostConnection);
         }
@@ -892,7 +986,6 @@
             console.log('Setting up connection with:', conn.peer);
             connections.set(conn.peer, conn);
             
-            // CRITICAL FIX: If not host, this is the host connection
             if (!isHost && conn.peer === roomId) {
                 hostConnection = conn;
                 console.log('Host connection established');
@@ -904,7 +997,6 @@
                 updateConnectionStatus('Connected');
                 updateConnectionBadge(true);
                 
-                // Send join message
                 const joinData = {
                     type: 'join',
                     peerId: myPeerId,
@@ -913,10 +1005,11 @@
                 };
                 conn.send(joinData);
                 
-                // Request chat history if not host
                 if (!isHost) {
                     setTimeout(() => {
-                        conn.send({ type: 'request_history' });
+                        if (conn.open) {
+                            conn.send({ type: 'request_history' });
+                        }
                     }, 500);
                 }
             });
@@ -932,7 +1025,6 @@
                 members.delete(conn.peer);
                 updateMemberCount();
                 
-                // CRITICAL FIX: Check if host connection was lost
                 if (!isHost && conn.peer === roomId) {
                     hostConnection = null;
                     updateConnectionStatus('Disconnected from host');
@@ -965,17 +1057,17 @@
                     addSystemMessage(`${data.name} joined`);
                     updateMemberCount();
                     
-                    // Host sends chat history to new member
                     if (isHost) {
                         setTimeout(() => {
-                            conn.send({
-                                type: 'history',
-                                history: chatHistory,
-                                members: Array.from(members.entries())
-                            });
+                            if (conn.open) {
+                                conn.send({
+                                    type: 'history',
+                                    history: chatHistory,
+                                    members: Array.from(members.entries())
+                                });
+                            }
                         }, 300);
                         
-                        // Broadcast new member to others
                         broadcast({
                             type: 'member_update',
                             members: Array.from(members.entries())
@@ -992,11 +1084,13 @@
                 case 'request_history':
                     if (isHost) {
                         setTimeout(() => {
-                            conn.send({
-                                type: 'history',
-                                history: chatHistory,
-                                members: Array.from(members.entries())
-                            });
+                            if (conn.open) {
+                                conn.send({
+                                    type: 'history',
+                                    history: chatHistory,
+                                    members: Array.from(members.entries())
+                                });
+                            }
                         }, 300);
                     }
                     break;
@@ -1027,7 +1121,6 @@
                 case 'voice':
                 case 'location':
                     receiveMessage(data);
-                    // CRITICAL FIX: Host broadcasts to all, member just received from host
                     if (isHost) {
                         broadcast(data, conn.peer);
                     }
@@ -1092,7 +1185,6 @@
             const txt = input.value.trim();
             if (!txt) return;
             
-            // Check connection
             if (!isHost && !hostConnection) {
                 alert('Not connected to room. Please reconnect.');
                 return;
@@ -1127,7 +1219,6 @@
             const files = document.getElementById('file-input').files;
             if (!files.length) return;
             
-            // Check connection
             if (!isHost && !hostConnection) {
                 alert('Not connected to room. Please reconnect.');
                 return;
@@ -1152,7 +1243,6 @@
             reader.onload = function(e) {
                 let content = e.target.result;
                 
-                // Compress images
                 if (file.type.startsWith('image/') && settings.autoDownload) {
                     compressImage(content, (compressed) => {
                         sendFileMessage(file, compressed);
@@ -1218,17 +1308,33 @@
             cancelReply();
         }
 
+        // FIXED: processSend function
         function processSend(data) {
+            // Save to local history with originalText
             saveAndRender(data, true);
             
-            // CRITICAL FIX: Send to appropriate connection
+            // Create network data copy
+            const networkData = { ...data };
+            
+            // Remove originalText from network data if encrypted
+            if (encryptionKey && networkData.type === 'text') {
+                networkData.originalText = null;
+            }
+            
+            // Send network data
             if (isHost) {
-                broadcast(data);
+                broadcast(networkData);
             } else if (hostConnection && hostConnection.open) {
                 console.log('Sending message to host');
-                hostConnection.send(data);
+                hostConnection.send(networkData);
             } else {
                 console.error('No connection to host!');
+                // Remove failed message
+                chatHistory.pop();
+                const chatArea = document.getElementById('chat-area');
+                if (chatArea.lastChild) {
+                    chatArea.removeChild(chatArea.lastChild);
+                }
                 alert('Cannot send message. Not connected to room.');
                 return;
             }
@@ -1237,7 +1343,6 @@
         }
 
         function receiveMessage(data) {
-            // Decrypt if encrypted
             if (data.type === 'text' && encryptionKey && !data.originalText) {
                 data.originalText = decryptMessage(data.text, encryptionKey);
             }
@@ -1253,7 +1358,6 @@
             saveChatHistory();
             renderMessage(message);
             
-            // Mark as read
             if (!isMe) {
                 setTimeout(() => {
                     markAsRead(data.id);
@@ -1323,7 +1427,6 @@
                         break;
                 }
                 
-                // Reply Preview
                 let replyPreview = "";
                 if (data.replyTo) {
                     const replyText = data.replyTo.originalText || data.replyTo.text || '';
@@ -1341,7 +1444,6 @@
                         </div>`;
                 }
                 
-                // Reactions
                 let reactionsHtml = '';
                 if (data.reactions && Object.keys(data.reactions).length > 0) {
                     reactionsHtml = '<div class="reactions-container">';
@@ -1359,7 +1461,6 @@
                     reactionsHtml += '</div>';
                 }
                 
-                // Status
                 let statusIcon = '';
                 if (isMe) {
                     if (data.status === 'read') {
@@ -1371,7 +1472,6 @@
                     }
                 }
                 
-                // Edited label
                 const editedLabel = data.edited ? '<span class="edited-label">edited</span>' : '';
                 
                 div.innerHTML = `
@@ -1399,7 +1499,8 @@
         }
 
         function renderHistory() {
-            document.getElementById('chat-area').innerHTML = '';
+            const chatArea = document.getElementById('chat-area');
+            chatArea.innerHTML = '';
             chatHistory.forEach(msg => renderMessage(msg));
             scrollToBottom();
         }
@@ -1411,7 +1512,6 @@
                 return;
             }
             
-            // Check connection
             if (!isHost && !hostConnection) {
                 alert('Not connected to room. Please reconnect.');
                 return;
@@ -1503,7 +1603,6 @@
             const icon = btn.querySelector('i');
             
             if (audio.paused) {
-                // Pause all other audios
                 document.querySelectorAll('audio').forEach(a => {
                     if (a !== audio) {
                         a.pause();
@@ -1575,11 +1674,10 @@
             
             deleteMessageById(selectedMessage);
             
-            // Broadcast delete
             const deleteData = { type: 'delete', messageId: selectedMessage };
             if (isHost) {
                 broadcast(deleteData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(deleteData);
             }
             
@@ -1629,12 +1727,12 @@
                 type: 'edit', 
                 messageId: selectedMessage, 
                 newText: textToSend,
-                originalText: newText
+                originalText: encryptionKey ? null : newText
             };
             
             if (isHost) {
                 broadcast(editData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(editData);
             }
             
@@ -1697,7 +1795,7 @@
             
             if (isHost) {
                 broadcast(pinData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(pinData);
             }
             
@@ -1797,7 +1895,7 @@
             
             if (isHost) {
                 broadcast(reactionData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(reactionData);
             }
         }
@@ -1919,7 +2017,7 @@
             }
         }
 
-        // Typing Indicator
+        // FIXED: Typing Indicator
         let typingUsers = new Set();
         function handleTyping() {
             const input = document.getElementById('msg-input');
@@ -1928,9 +2026,10 @@
             clearTimeout(typingTimeout);
             
             const typingData = { type: 'typing', sender: myName };
+            
             if (isHost) {
                 broadcast(typingData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(typingData);
             }
             
@@ -1969,14 +2068,15 @@
             }
         }
 
-        // Read Receipts
+        // FIXED: Read Receipts
         function markAsRead(msgId) {
             const msg = chatHistory.find(m => m.id === msgId);
             if (msg && !msg.isMe) {
                 const readData = { type: 'read', messageIds: [msgId] };
+                
                 if (isHost) {
                     broadcast(readData);
-                } else if (hostConnection) {
+                } else if (hostConnection && hostConnection.open) {
                     hostConnection.send(readData);
                 }
             }
@@ -2002,7 +2102,6 @@
                 return;
             }
             
-            // Check connection
             if (!isHost && !hostConnection) {
                 alert('Not connected to room. Please reconnect.');
                 return;
@@ -2048,6 +2147,10 @@
             document.getElementById('group-info-avatar').src = document.getElementById('group-avatar').src;
             document.getElementById('group-info-name').textContent = document.getElementById('chat-title').textContent;
             document.getElementById('member-count').textContent = members.size;
+            
+            // Generate QR Code
+            generateRoomQR();
+            
             openModal('group-info-modal');
             closeModal('menu-modal');
         }
@@ -2119,7 +2222,6 @@
         }
 
         function showAttachMenu() {
-            // Check connection
             if (!isHost && !hostConnection) {
                 alert('Not connected to room. Please reconnect.');
                 return;
@@ -2158,7 +2260,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `chat-export-${roomId}-${Date.now()}.json`;
+            a.download = `dechat-export-${roomId}-${Date.now()}.json`;
             a.click();
             URL.revokeObjectURL(url);
             
@@ -2166,12 +2268,19 @@
             closeModal('group-info-modal');
         }
 
+        // FIXED: Clear All Messages
         function clearAllMessages() {
             if (!confirm('Clear all messages? This cannot be undone.')) return;
             
             chatHistory = [];
+            pinnedMessages = [];
             saveChatHistory();
-            document.getElementById('chat-area').innerHTML = '';
+            savePinnedMessages();
+            
+            const chatArea = document.getElementById('chat-area');
+            chatArea.innerHTML = '<button class="scroll-bottom-btn" id="scroll-bottom-btn" onclick="scrollToBottom()"><i class="fas fa-chevron-down"></i></button>';
+            
+            updatePinnedBanner();
             closeModal('menu-modal');
         }
 
@@ -2242,7 +2351,6 @@
                 peer.destroy();
             }
             
-            // Reinitialize
             setTimeout(() => {
                 initPeer();
             }, 1000);
@@ -2278,7 +2386,7 @@
             
             if (isHost) {
                 broadcast(leaveData);
-            } else if (hostConnection) {
+            } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(leaveData);
             }
             
@@ -2309,7 +2417,7 @@
                 new Notification(data.sender, {
                     body: body,
                     icon: getAvatar(data.sender),
-                    tag: 'p2p-chat'
+                    tag: 'dechat'
                 });
             }
         }
@@ -2364,26 +2472,44 @@
 
         // Storage
         function saveChatHistory() {
-            localStorage.setItem('p2p_chat_' + roomId, JSON.stringify(chatHistory));
+            try {
+                localStorage.setItem('p2p_chat_' + roomId, JSON.stringify(chatHistory));
+            } catch (e) {
+                console.error('Error saving chat history:', e);
+            }
         }
 
         function loadChatHistory() {
-            const saved = localStorage.getItem('p2p_chat_' + roomId);
-            if (saved) {
-                chatHistory = JSON.parse(saved);
-                renderHistory();
+            try {
+                const saved = localStorage.getItem('p2p_chat_' + roomId);
+                if (saved) {
+                    chatHistory = JSON.parse(saved);
+                    renderHistory();
+                }
+            } catch (e) {
+                console.error('Error loading chat history:', e);
+                chatHistory = [];
             }
         }
 
         function savePinnedMessages() {
-            localStorage.setItem('p2p_pinned_' + roomId, JSON.stringify(pinnedMessages));
+            try {
+                localStorage.setItem('p2p_pinned_' + roomId, JSON.stringify(pinnedMessages));
+            } catch (e) {
+                console.error('Error saving pinned messages:', e);
+            }
         }
 
         function loadPinnedMessages() {
-            const saved = localStorage.getItem('p2p_pinned_' + roomId);
-            if (saved) {
-                pinnedMessages = JSON.parse(saved);
-                updatePinnedBanner();
+            try {
+                const saved = localStorage.getItem('p2p_pinned_' + roomId);
+                if (saved) {
+                    pinnedMessages = JSON.parse(saved);
+                    updatePinnedBanner();
+                }
+            } catch (e) {
+                console.error('Error loading pinned messages:', e);
+                pinnedMessages = [];
             }
         }
 
@@ -2469,9 +2595,6 @@
                 emojiPicker.style.display = 'none';
             }
         };
-
-        // Initialize on load
-        loadPinnedMessages();
     </script>
 </body>
 </html>
