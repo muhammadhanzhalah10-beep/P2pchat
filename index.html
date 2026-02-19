@@ -129,6 +129,18 @@
             background: var(--input-bg); color: var(--text-secondary); 
             font-size: 0.75rem; border-radius: 20px; text-align: center; padding: 6px 14px;
         }
+
+        /* Date Separator - like WhatsApp */
+        .date-separator {
+            display: flex; align-items: center; justify-content: center;
+            margin: 12px 0 8px 0; width: 100%;
+        }
+        .date-separator-label {
+            background: var(--input-bg); color: var(--text-secondary);
+            font-size: 0.72rem; font-weight: 600; border-radius: 10px;
+            padding: 4px 12px; letter-spacing: 0.3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
         
         .sender-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; color: var(--accent-light); }
         .meta-row { 
@@ -982,6 +994,35 @@
             handleConnection(hostConnection);
         }
 
+        let autoReconnectTimer = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        function tryAutoReconnect() {
+            if (isHost) return;
+            if (autoReconnectTimer) return; // already trying
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                showReconnectButton();
+                showToast('❌ Gagal reconnect. Tekan tombol Reconnect.');
+                return;
+            }
+            const delay = Math.min(2000 * Math.pow(2, reconnectAttempts), 30000);
+            reconnectAttempts++;
+            showToast(`🔄 Mencoba reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+            autoReconnectTimer = setTimeout(() => {
+                autoReconnectTimer = null;
+                if (!hostConnection || !hostConnection.open) {
+                    try {
+                        hostConnection = peer.connect(roomId, { reliable: true });
+                        handleConnection(hostConnection);
+                    } catch(e) {
+                        console.error('Auto-reconnect error:', e);
+                        tryAutoReconnect();
+                    }
+                }
+            }, delay);
+        }
+
         function handleConnection(conn) {
             console.log('Setting up connection with:', conn.peer);
             connections.set(conn.peer, conn);
@@ -997,6 +1038,13 @@
                 updateConnectionStatus('Connected');
                 updateConnectionBadge(true);
                 
+                // Reset reconnect state
+                reconnectAttempts = 0;
+                if (autoReconnectTimer) {
+                    clearTimeout(autoReconnectTimer);
+                    autoReconnectTimer = null;
+                }
+                
                 const joinData = {
                     type: 'join',
                     peerId: myPeerId,
@@ -1011,6 +1059,10 @@
                             conn.send({ type: 'request_history' });
                         }
                     }, 500);
+                    // Flush any queued messages after history sync
+                    setTimeout(() => {
+                        flushMessageQueue();
+                    }, 1200);
                 }
             });
             
@@ -1029,13 +1081,12 @@
                     hostConnection = null;
                     updateConnectionStatus('Disconnected from host');
                     updateConnectionBadge(false);
-                    showReconnectButton();
+                    tryAutoReconnect();
                 }
                 
                 if (connections.size === 0 && !isHost) {
                     updateConnectionStatus('Disconnected');
                     updateConnectionBadge(false);
-                    showReconnectButton();
                 }
             });
             
@@ -1150,6 +1201,11 @@
                     showTypingIndicator(data.sender);
                     break;
                     
+                case 'stop_typing':
+                    removeTypingUser(data.sender);
+                    if (isHost) broadcast(data, conn.peer);
+                    break;
+                    
                 case 'read':
                     markMessagesAsRead(data.messageIds);
                     if (isHost) broadcast(data, conn.peer);
@@ -1184,11 +1240,6 @@
             const input = document.getElementById('msg-input');
             const txt = input.value.trim();
             if (!txt) return;
-            
-            if (!isHost && !hostConnection) {
-                alert('Not connected to room. Please reconnect.');
-                return;
-            }
             
             let messageText = txt;
             if (encryptionKey) {
@@ -1308,7 +1359,10 @@
             cancelReply();
         }
 
-        // FIXED: processSend function
+        // Message queue for retry when connection is temporarily lost
+        let messageQueue = [];
+        let isRetrying = false;
+
         function processSend(data) {
             // Save to local history with originalText
             saveAndRender(data, true);
@@ -1321,25 +1375,91 @@
                 networkData.originalText = null;
             }
             
-            // Send network data
+            // Try to send, queue if not connected
             if (isHost) {
                 broadcast(networkData);
             } else if (hostConnection && hostConnection.open) {
                 console.log('Sending message to host');
-                hostConnection.send(networkData);
-            } else {
-                console.error('No connection to host!');
-                // Remove failed message
-                chatHistory.pop();
-                const chatArea = document.getElementById('chat-area');
-                if (chatArea.lastChild) {
-                    chatArea.removeChild(chatArea.lastChild);
+                try {
+                    hostConnection.send(networkData);
+                } catch(e) {
+                    console.error('Send error, queuing message:', e);
+                    messageQueue.push(networkData);
+                    updateMsgStatus(data.id, 'pending');
+                    showToast('⏳ Pesan akan terkirim saat tersambung kembali');
                 }
-                alert('Cannot send message. Not connected to room.');
+            } else {
+                // Not connected — queue the message instead of deleting it
+                console.warn('Not connected, queuing message');
+                messageQueue.push(networkData);
+                updateMsgStatus(data.id, 'pending');
+                showToast('⏳ Pesan antri, mencoba tersambung...');
+                tryAutoReconnect();
                 return;
             }
             
             playNotificationSound();
+        }
+
+        function updateMsgStatus(msgId, status) {
+            const msg = chatHistory.find(m => m.id === msgId);
+            if (msg) msg.status = status;
+            const el = document.querySelector(`[data-message-id="${msgId}"] .msg-status`);
+            if (el) {
+                if (status === 'pending') {
+                    el.className = 'fas fa-clock msg-status';
+                    el.style.color = 'rgba(255,200,0,0.8)';
+                } else if (status === 'sent') {
+                    el.className = 'fas fa-check msg-status';
+                    el.style.color = '';
+                }
+            }
+        }
+
+        function flushMessageQueue() {
+            if (messageQueue.length === 0) return;
+            console.log('Flushing', messageQueue.length, 'queued messages');
+            const toSend = [...messageQueue];
+            messageQueue = [];
+            toSend.forEach(networkData => {
+                try {
+                    if (isHost) {
+                        broadcast(networkData);
+                    } else if (hostConnection && hostConnection.open) {
+                        hostConnection.send(networkData);
+                    } else {
+                        messageQueue.push(networkData); // push back if still not connected
+                        return;
+                    }
+                    updateMsgStatus(networkData.id, 'sent');
+                } catch(e) {
+                    console.error('Flush send error:', e);
+                    messageQueue.push(networkData);
+                }
+            });
+            if (messageQueue.length === 0) {
+                showToast('✅ Semua pesan terkirim!');
+            }
+        }
+
+        function showToast(msg) {
+            let toast = document.getElementById('toast-msg');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast-msg';
+                toast.style.cssText = `
+                    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+                    background: rgba(30,42,58,0.95); color: #e8eef5; padding: 8px 16px;
+                    border-radius: 20px; font-size: 0.8rem; z-index: 9999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: none;
+                    transition: opacity 0.3s;
+                `;
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
         }
 
         function receiveMessage(data) {
@@ -1367,6 +1487,23 @@
 
         function renderMessage(data) {
             const chatArea = document.getElementById('chat-area');
+
+            // Inject date separator if needed (for real-time messages)
+            if (data.type !== 'sys' && data.timestamp) {
+                const label = formatDateLabel(data.timestamp);
+                if (label) {
+                    // Check if last separator matches
+                    const separators = chatArea.querySelectorAll('.date-separator-label');
+                    const lastLabel = separators.length ? separators[separators.length - 1].textContent : null;
+                    if (label !== lastLabel) {
+                        const sep = document.createElement('div');
+                        sep.className = 'date-separator';
+                        sep.innerHTML = `<span class="date-separator-label">${label}</span>`;
+                        chatArea.appendChild(sep);
+                    }
+                }
+            }
+
             const div = document.createElement('div');
             const isMe = data.isMe || data.senderId === myPeerId;
             
@@ -1498,10 +1635,48 @@
             checkScrollPosition();
         }
 
+        function formatDateLabel(timestamp) {
+            if (!timestamp) return null;
+            const msgDate = new Date(timestamp);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+
+            const sameDay = (a, b) =>
+                a.getDate() === b.getDate() &&
+                a.getMonth() === b.getMonth() &&
+                a.getFullYear() === b.getFullYear();
+
+            if (sameDay(msgDate, today)) return 'Hari Ini';
+            if (sameDay(msgDate, yesterday)) return 'Kemarin';
+
+            const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+            const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            const diffDays = Math.floor((today - msgDate) / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 7) {
+                return dayNames[msgDate.getDay()];
+            }
+            return `${msgDate.getDate()} ${monthNames[msgDate.getMonth()]} ${msgDate.getFullYear()}`;
+        }
+
         function renderHistory() {
             const chatArea = document.getElementById('chat-area');
             chatArea.innerHTML = '';
-            chatHistory.forEach(msg => renderMessage(msg));
+            let lastDateLabel = null;
+            chatHistory.forEach(msg => {
+                if (msg.type !== 'sys' && msg.timestamp) {
+                    const label = formatDateLabel(msg.timestamp);
+                    if (label && label !== lastDateLabel) {
+                        lastDateLabel = label;
+                        const sep = document.createElement('div');
+                        sep.className = 'date-separator';
+                        sep.innerHTML = `<span class="date-separator-label">${label}</span>`;
+                        chatArea.appendChild(sep);
+                    }
+                }
+                renderMessage(msg);
+            });
             scrollToBottom();
         }
 
@@ -2019,6 +2194,8 @@
 
         // FIXED: Typing Indicator
         let typingUsers = new Set();
+        let typingTimers = {};
+
         function handleTyping() {
             const input = document.getElementById('msg-input');
             toggleSendButton();
@@ -2034,8 +2211,14 @@
             }
             
             typingTimeout = setTimeout(() => {
-                // Stopped typing
-            }, 1000);
+                // Send stop typing signal
+                const stopData = { type: 'stop_typing', sender: myName };
+                if (isHost) {
+                    broadcast(stopData);
+                } else if (hostConnection && hostConnection.open) {
+                    hostConnection.send(stopData);
+                }
+            }, 1500);
         }
 
         function showTypingIndicator(userName) {
@@ -2044,14 +2227,27 @@
             document.getElementById('typing-user').textContent = Array.from(typingUsers).join(', ');
             indicator.style.display = 'block';
             
-            setTimeout(() => {
-                typingUsers.delete(userName);
-                if (typingUsers.size === 0) {
-                    indicator.style.display = 'none';
-                } else {
-                    document.getElementById('typing-user').textContent = Array.from(typingUsers).join(', ');
-                }
+            // Clear previous timer for this user
+            if (typingTimers[userName]) clearTimeout(typingTimers[userName]);
+            
+            // Auto-hide after 3s as fallback
+            typingTimers[userName] = setTimeout(() => {
+                removeTypingUser(userName);
             }, 3000);
+        }
+
+        function removeTypingUser(userName) {
+            typingUsers.delete(userName);
+            if (typingTimers[userName]) {
+                clearTimeout(typingTimers[userName]);
+                delete typingTimers[userName];
+            }
+            const indicator = document.getElementById('typing-indicator');
+            if (typingUsers.size === 0) {
+                indicator.style.display = 'none';
+            } else {
+                document.getElementById('typing-user').textContent = Array.from(typingUsers).join(', ');
+            }
         }
 
         function toggleSendButton() {
@@ -2346,6 +2542,22 @@
 
         function retryConnection() {
             document.getElementById('reconnect-btn').style.display = 'none';
+            reconnectAttempts = 0;
+            if (autoReconnectTimer) {
+                clearTimeout(autoReconnectTimer);
+                autoReconnectTimer = null;
+            }
+            
+            if (peer && !peer.destroyed) {
+                try {
+                    hostConnection = peer.connect(roomId, { reliable: true });
+                    handleConnection(hostConnection);
+                    showToast('🔄 Mencoba menyambung kembali...');
+                    return;
+                } catch(e) {
+                    console.error('Quick reconnect failed, reinit peer:', e);
+                }
+            }
             
             if (peer) {
                 peer.destroy();
